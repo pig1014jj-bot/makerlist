@@ -63,11 +63,11 @@
     import { getAuth, signInWithCustomToken, signInAnonymously, onAuthStateChanged, signInWithEmailAndPassword, signOut } from 'firebase/auth';
     import { getFirestore, collection, doc, setDoc, deleteDoc, onSnapshot, writeBatch } from 'firebase/firestore';
 
-    const apiKey = "AIzaSyAegrsQB3HXbY8ousmnFAXqAmFADtlmE5E"; // 執行環境會自動提供 API Key。若要在外部部署，可填入金鑰。
+    const apiKey = "AIzaSyAk-A-JsK3Pe0UCoML81lh9D8ZVOwkYRzs"; // 執行環境會自動提供 API Key。若要在外部部署，可填入金鑰。
 
     // Firebase の初期化
     const firebaseConfig = {
-      apiKey: "AIzaSyAegrsQB3HXbY8ousmnFAXqAmFADtlmE5E",
+      apiKey: "AIzaSyAk-A-JsK3Pe0UCoML81lh9D8ZVOwkYRzs",
       authDomain: "makerlist-9fdc2.firebaseapp.com",
       projectId: "makerlist-9fdc2",
       storageBucket: "makerlist-9fdc2.firebasestorage.app",
@@ -80,7 +80,7 @@
     const db = getFirestore(app);
     const appId = typeof __app_id !== 'undefined' ? __app_id : 'default-app-id';
 
-    const googleMapsApiKey = ""; // 填入您的 Google Maps API Key 以啟用地圖模式
+    const googleMapsApiKey = "AIzaSyClYcKHQwITPsE71XuhOxuCQXW5uxuOkDI"; // 填入您的 Google Maps API Key 以啟用地圖模式
 
     // ★ 在此設定被允許的管理員 Email 列表 (RBAC Role-Based Access Control)
     const ADMIN_EMAILS = ['wu-chiehchun@plantec.co.jp', 'admin@example.com', 'leo@example.com'];
