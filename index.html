@@ -1,0 +1,2117 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+  <meta name="theme-color" content="#f7f6f3">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="default">
+  <meta name="apple-mobile-web-app-title" content="Smartlist">
+  <title>Smartlist</title>
+  
+  <!-- Tailwind CSS -->
+  <script src="https://cdn.tailwindcss.com"></script>
+  
+  <!-- Babel -->
+  <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+
+  <style>
+    /* Custom Scrollbar and Utilities */
+    ::-webkit-scrollbar { width: 6px; height: 6px; }
+    ::-webkit-scrollbar-track { background: transparent; }
+    ::-webkit-scrollbar-thumb { background: #d1d5db; border-radius: 4px; }
+    ::-webkit-scrollbar-thumb:hover { background: #9ca3af; }
+    .no-scrollbar::-webkit-scrollbar { display: none; }
+    .no-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }
+    body { background-color: #f7f6f3; }
+  </style>
+
+  <!-- Import Maps for ES Modules -->
+  <script type="importmap">
+    {
+      "imports": {
+        "react": "https://esm.sh/react@18.2.0",
+        "react-dom/client": "https://esm.sh/react-dom@18.2.0/client",
+        "lucide-react": "https://esm.sh/lucide-react@0.292.0",
+        "firebase/app": "https://www.gstatic.com/firebasejs/11.6.1/firebase-app.js",
+        "firebase/auth": "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js",
+        "firebase/firestore": "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js"
+      }
+    }
+  </script>
+</head>
+<body>
+  <div id="root"></div>
+
+  <!-- React Application Code -->
+  <script type="text/babel" data-type="module">
+    import React, { useState, useRef, useEffect } from 'react';
+    import { createRoot } from 'react-dom/client';
+    import { 
+      Camera, Upload, Save, Trash2, Edit2, Building2, 
+      Phone, Mail, MapPin, User, Briefcase, Plus, X, 
+      Loader2, CheckCircle2, Search, Image as ImageIcon,
+      Download, Smartphone, Globe, Tag, FileUp, ImagePlus,
+      Link as LinkIcon, QrCode, PlusCircle, Calendar, Clock,
+      Share, Cloud, CloudOff, Shield, ShieldCheck, History, Filter,
+      Map, List, Sparkles, SlidersHorizontal, ArrowDown, ArrowUp, Book,
+      ChevronLeft, ChevronRight, Folder, FolderOpen, GripVertical, HelpCircle, Send, UserPlus, ChevronDown
+    } from 'lucide-react';
+
+    // Firebase のインポート
+    import { initializeApp } from 'firebase/app';
+    import { getAuth, signInWithCustomToken, signInAnonymously, onAuthStateChanged, signInWithEmailAndPassword, signOut } from 'firebase/auth';
+    import { getFirestore, collection, doc, setDoc, deleteDoc, onSnapshot, writeBatch } from 'firebase/firestore';
+
+    const apiKey = "AIzaSyAegrsQB3HXbY8ousmnFAXqAmFADtlmE5E"; // 執行環境會自動提供 API Key。若要在外部部署，可填入金鑰。
+
+    // Firebase の初期化
+    const firebaseConfig = {
+      apiKey: "AIzaSyAegrsQB3HXbY8ousmnFAXqAmFADtlmE5E",
+      authDomain: "makerlist-9fdc2.firebaseapp.com",
+      projectId: "makerlist-9fdc2",
+      storageBucket: "makerlist-9fdc2.firebasestorage.app",
+      messagingSenderId: "626527792031",
+      appId: "1:626527792031:web:d5500403089ec1eb946baa", 
+      measurementId: "G-NWNQEGTQMS"
+    };    
+    const app = initializeApp(firebaseConfig);
+    const auth = getAuth(app);
+    const db = getFirestore(app);
+    const appId = typeof __app_id !== 'undefined' ? __app_id : 'default-app-id';
+
+    const googleMapsApiKey = ""; // 填入您的 Google Maps API Key 以啟用地圖模式
+
+    // ★ 在此設定被允許的管理員 Email 列表 (RBAC Role-Based Access Control)
+    const ADMIN_EMAILS = ['wu-chiehchun@plantec.co.jp', 'admin@example.com', 'leo@example.com'];
+
+
+    // ------------------------------
+    // 多言語翻譯字典 (i18n Translations)
+    // ------------------------------
+    const translations = {
+      zh: {
+        appTitle: "Smartlist",
+        connected: "已連線", offline: "離線中", admin: "管理員", user: "一般",
+        importCSV: "匯入 CSV", exportCSV: "匯出 CSV", uploadCard: "上傳名片", scanCamera: "拍照建檔", scan: "掃描",
+        searchPlaceholder: "搜尋公司、姓名、年份...", totalVendors: "共 {0} 筆廠商資料",
+        connectingDb: "正在連線至雲端資料庫...", noData: "尚未建立資料", noDataDesc: "點擊上方的按鈕開始自動辨識名片，或使用「匯入 CSV」大量加入資料。",
+        noName: "無姓名", noCompany: "無公司名稱", catalogs: "產品型錄", untitledCatalog: "未命名型錄", scanToView: "手機掃描查看",
+        notesLabel: "備註", lastUpdated: "最終更新", edit: "編輯", delete: "刪除", history: "歷史紀錄",
+        editVendor: "編輯廠商資料", addVendor: "新增廠商資料", aiParsing: "AI 解析中...",
+        scannedImage: "掃描影像 (正面 / 背面)", tapForFront: "點擊拍攝正面", addBack: "新增背面照片 (選填)",
+        basicInfo: "基本資料", companyLogo: "公司 Logo", removeImage: "移除圖片",
+        catYear: "資料年", catCategory: "分類", catCompany: "公司名稱", catHp: "網站網址",
+        contactPerson: "聯絡人", catDept: "部門/職稱", catName: "姓名", catFurigana: "拼音", catHonorific: "稱謂",
+        contactMethod: "通訊方式", catPhone: "公司電話", catMobile: "手機號碼", catEmail: "電子郵件",
+        addressAndNotes: "地址與備註", catPostal: "郵遞區號", catAddress1: "地址 1", catAddress2: "地址 2", catNotes: "備註",
+        catalogAndQR: "產品型錄連結與 QR Code", addLink: "新增連結", noCatalogLinks: "尚未新增任何型錄連結",
+        catalogName: "型錄名稱", catalogUrl: "網址 (URL)", qrPreview: "QR預覽",
+        cancel: "取消", close: "關閉", saveData: "儲存資料",
+        adminLogin: "管理員身分驗證", adminLoginDesc: "請輸入管理員 Email 與密碼進行身分驗證。(尚未註冊請先在 Firebase Console 設定)",
+        adminEmailPlaceholder: "請輸入 Email...", passwordPlaceholder: "請輸入密碼...", login: "登入",
+        deleteConfirmTitle: "確定要刪除這筆資料嗎？", deleteConfirmDesc: "刪除後將無法復原", confirmDelete: "確定刪除",
+        historyTitle: "變更紀錄", versionList: "版本列表 (最大 10 筆)", currentData: "目前最新資料",
+        version: "版本", currentVersion: "目前版本", historicalVersion: "歷史版本", catAddress: "地址",
+        toastLogout: "已登出管理員模式，切換為訪客身分", toastLogin: "成功登入管理員模式", toastWrongPwd: "登入失敗，請檢查 Email 或密碼",
+        toastOcrFail: "名片辨識失敗，請手動輸入資料或再試一次。", toastRequired: "請至少輸入姓名或公司名稱",
+        toastDbNotReady: "資料庫尚未準備就緒，請稍後再試。", toastSaveFail: "儲存失敗",
+        toastAdminOnlyDelete: "只有管理員可以刪除資料", toastDeleted: "資料已刪除", toastDeleteFail: "刪除失敗",
+        toastAdminOnlyHistory: "只有管理員可以調閱歷史紀錄", toastImportSuccess: "成功匯入 {0} 筆資料！目前已同步至雲端。", toastImportFail: "匯入發生錯誤，請稍後再試。",
+        pwaPrompt: "點擊下方分享按鈕，選擇「加入主畫面」將此系統安裝為 App。",
+        egCategory: "例：防水材", egCompany: "例：科技創新股份有限公司", egCatalog: "例：2025年綜合型錄", egYear: "例：2026",
+        quickFilter: "快速篩選：", clickToFilter: "點擊以加入或移除篩選",
+        listView: "列表模式", mapView: "地圖模式", mapNav: "Google Maps 導航", mapNoKey: "尚未設定 Google Maps API Key", mapKeyHint: "請在程式碼頂部的 `googleMapsApiKey` 填入您的金鑰，即可解鎖完整地圖功能與大頭針顯示。",
+        aiAutoComplete: "AI 自動補全", toastAiSuccess: "AI 已成功聯網補齊資料！", toastAiFail: "AI 補全失敗，請確認公司名稱或網址", toastNeedCompany: "請先輸入「公司名稱」才能使用 AI 補全",
+        advFilters: "進階篩選", sortBy: "排序方式", sortNewest: "最新更新優先", sortOldest: "最早建立優先", filterCatalog: "型錄狀態", hasCatalog: "僅顯示有型錄者", multiCategory: "分類多選", clearFilters: "清除全部條件",
+        projectFolders: "專案資料夾", addProject: "加入", projectPlaceholder: "輸入專案名稱 (按 Enter 加入)", allProjects: "全部廠商", noProject: "未分類",
+        sortManual: "手動拖曳排序", disableSortOnFilter: "請先清除所有篩選與搜尋，再進行拖曳排序。", toastLocalSortOnly: "排序已變更 (僅本地預覽，登入管理員可永久儲存)", toastSortSaved: "自訂排序已成功儲存至雲端",
+        help: "說明", helpTitle: "系統使用說明 & 快捷鍵", helpDesc: "歡迎使用 Smartlist！以下是主要功能與操作指南：",
+        helpAdd: "📷 建立資料：點擊「掃描名片」或「上傳照片」，AI 會自動辨識名片內容。輸入公司名稱後，可點擊「AI 自動補全」自動上網尋找地址與電話。",
+        helpSort: "🖱️ 拖曳排序：在「進階篩選」中開啟「手動拖曳排序」，可按住卡片左側把手自由排列順序。編輯時也能拖曳排序產品型錄。",
+        helpProject: "📁 專案資料夾：編輯名片時可加入「專案資料夾」標籤，方便在首頁快速過濾專屬廠商清單。",
+        helpAdmin: "🛡️ 權限管理：一般用戶可新增/編輯資料；點選右上角切換至「管理員」後，可解鎖刪除、檢視歷史紀錄與匯出 CSV 等進階功能。",
+        helpShortcuts: "⌨️ 快捷鍵：",
+        helpShortcutEsc: "• 按 Esc 鍵：快速關閉任何開啟的視窗。",
+        helpShortcutEnter: "• 按 Enter 鍵：在專案輸入框快速加入專案、或在登入視窗快速登入。",
+        sendEmail: "寄送電子郵件",
+        addContact: "同步至手機通訊錄"
+      },
+      ja: {
+        appTitle: "Smartlist",
+        connected: "接続済み", offline: "オフライン", admin: "管理者", user: "一般",
+        importCSV: "CSVインポート", exportCSV: "CSVエクスポート", uploadCard: "名刺アップロード", scanCamera: "カメラでスキャン", scan: "スキャン",
+        searchPlaceholder: "会社名、氏名、年で検索...", totalVendors: "全 {0} 件のデータ",
+        connectingDb: "クラウドDBに接続中...", noData: "データがありません", noDataDesc: "上のボタンをクリックして名刺を自動認識するか、「CSVインポート」で一括追加してください。",
+        noName: "名前なし", noCompany: "会社名なし", catalogs: "カタログ", untitledCatalog: "無題のカタログ", scanToView: "スマホで読み取る",
+        notesLabel: "備考", lastUpdated: "最終更新", edit: "編集", delete: "削除", history: "履歴",
+        editVendor: "ベンダー情報の編集", addVendor: "ベンダー情報の追加", aiParsing: "AI 解析中...",
+        scannedImage: "スキャン画像 (表面 / 裏面)", tapForFront: "タップして表面を撮影", addBack: "裏面を追加 (任意)",
+        basicInfo: "基本情報", companyLogo: "会社ロゴ", removeImage: "画像を削除",
+        catYear: "データ年", catCategory: "カテゴリ", catCompany: "会社名", catHp: "Webサイト (HP)",
+        contactPerson: "連絡先（担当者）", catDept: "部署・役職", catName: "氏名", catFurigana: "フリガナ", catHonorific: "敬称",
+        contactMethod: "連絡先（通信）", catPhone: "電話番号", catMobile: "携帯電話", catEmail: "メールアドレス",
+        addressAndNotes: "住所と備考", catPostal: "郵便番号", catAddress1: "住所 1", catAddress2: "住所 2", catNotes: "備考",
+        catalogAndQR: "カタログリンクとQRコード", addLink: "リンクを追加", noCatalogLinks: "カタログリンクがありません",
+        catalogName: "カタログ名", catalogUrl: "URL", qrPreview: "QRプレビュー",
+        cancel: "キャンセル", close: "閉じる", saveData: "保存",
+        adminLogin: "管理者認証", adminLoginDesc: "管理者のEmailとパスワードを入力してください。",
+        adminEmailPlaceholder: "Emailを入力...", passwordPlaceholder: "パスワードを入力...", login: "ログイン",
+        deleteConfirmTitle: "このデータを削除しますか？", deleteConfirmDesc: "削除後は復元できません", confirmDelete: "削除する",
+        historyTitle: "変更履歴", versionList: "バージョン一覧 (最大10件)", currentData: "現在のデータ",
+        version: "バージョン", currentVersion: "現在のバージョン", historicalVersion: "過去のバージョン", catAddress: "住所",
+        toastLogout: "ログアウトし、ゲストモードに切り替えました", toastLogin: "管理者としてログインしました", toastWrongPwd: "ログイン失敗。Emailまたはパスワードを確認してください",
+        toastOcrFail: "名刺の認識に失敗しました。手動で入力するか、もう一度お試しください。", toastRequired: "氏名または会社名を最低限入力してください",
+        toastDbNotReady: "データベースの準備ができていません。しばらくしてから再度お試しください。", toastSaveFail: "保存に失敗しました",
+        toastAdminOnlyDelete: "管理者のみ削除可能です", toastDeleted: "データを削除しました", toastDeleteFail: "削除に失敗しました",
+        toastAdminOnlyHistory: "管理者のみ履歴を閲覧可能です", toastImportSuccess: "{0}件のデータをインポートしました。クラウドに同期されています。", toastImportFail: "インポートに失敗しました。後でもう一度お試しください。",
+        pwaPrompt: "下の共有ボタンをタップし、「ホーム画面に追加」を選択してアプリとしてインストールできます。",
+        egCategory: "例：防水材", egCompany: "例：〇〇株式会社", egCatalog: "例：2025年総合カタログ", egYear: "例：2026",
+        quickFilter: "クイック絞り込み：", clickToFilter: "クリックしてフィルタを追加/解除",
+        listView: "リスト表示", mapView: "マップ表示", mapNav: "Google Maps ナビ", mapNoKey: "Google Maps API Keyが未設定です", mapKeyHint: "コード上部の `googleMapsApiKey` にAPIキーを入力すると、フルマップとピン表示が有効になります。",
+        aiAutoComplete: "AI 自動補完", toastAiSuccess: "AIがウェブからデータを補完しました！", toastAiFail: "AI補完に失敗しました。会社名やURLを確認してください", toastNeedCompany: "AI補完を使用するには、まず「会社名」を入力してください",
+        advFilters: "高度な絞り込み", sortBy: "並べ替え", sortNewest: "最新順", sortOldest: "作成日時の古い順", filterCatalog: "カタログの有無", hasCatalog: "カタログありのみ表示", multiCategory: "カテゴリ複数選択", clearFilters: "条件をクリア",
+        projectFolders: "プロジェクト", addProject: "追加", projectPlaceholder: "プロジェクト名を入力 (Enterで追加)", allProjects: "全ベンダー", noProject: "未分類",
+        sortManual: "手動ドラッグ並べ替え", disableSortOnFilter: "ドラッグ並べ替えを行う前に、すべてのフィルターと検索をクリアしてください。", toastLocalSortOnly: "並べ替えました (ローカルプレビューのみ。保存するには管理者ログインが必要です)", toastSortSaved: "カスタム並べ替えをクラウドに保存しました",
+        help: "ヘルプ", helpTitle: "使い方とショートカット", helpDesc: "Smartlistへようこそ！主な機能と操作方法は以下の通りです：",
+        helpAdd: "📷 データ作成: 「スキャン」または「アップロード」でAIが名刺を自動認識。会社名を入力後、「AI自動補完」で住所や電話番号をウェブ検索できます。",
+        helpSort: "🖱️ ドラッグ並べ替え: 「高度な絞り込み」で「手動ドラッグ並べ替え」をオンにすると、カードを自由に並べ替えられます。カタログもドラッグで並べ替え可能です。",
+        helpProject: "📁 プロジェクト: 編集時にプロジェクトタグを追加すると、ホーム画面で専用ベンダーをすばやく絞り込めます。",
+        helpAdmin: "🛡️ 権限管理: 一般ユーザーは追加/編集が可能。右上の「管理者」にログインすると、削除、履歴閲覧、CSVエクスポートが解放されます。",
+        helpShortcuts: "⌨️ ショートカット:",
+        helpShortcutEsc: "• Esc キー: 開いているモーダル（ウィンドウ）を閉じます。",
+        helpShortcutEnter: "• Enter キー: プロジェクトの追加、またはログインの実行を素早く行えます。",
+        sendEmail: "メールを作成",
+        addContact: "スマホの連絡先に同期"
+      },
+      en: {
+        appTitle: "Smartlist",
+        connected: "Online", offline: "Offline", admin: "Admin", user: "User",
+        importCSV: "Import CSV", exportCSV: "Export CSV", uploadCard: "Upload Card", scanCamera: "Scan Camera", scan: "Scan",
+        searchPlaceholder: "Search company, name, year...", totalVendors: "Total {0} vendors",
+        connectingDb: "Connecting to Cloud DB...", noData: "No Data Found", noDataDesc: "Click the buttons above to scan cards, or use 'Import CSV' for bulk addition.",
+        noName: "No Name", noCompany: "No Company", catalogs: "Catalogs", untitledCatalog: "Untitled Catalog", scanToView: "Scan to view",
+        notesLabel: "Notes", lastUpdated: "Last Updated", edit: "Edit", delete: "Delete", history: "History",
+        editVendor: "Edit Vendor", addVendor: "Add Vendor", aiParsing: "AI Parsing...",
+        scannedImage: "Scanned Image (Front / Back)", tapForFront: "Tap for Front", addBack: "Add Back (Optional)",
+        basicInfo: "Basic Info", companyLogo: "Company Logo", removeImage: "Remove Image",
+        catYear: "Data Year", catCategory: "Category", catCompany: "Company Name", catHp: "Website (URL)",
+        contactPerson: "Contact Person", catDept: "Dept / Title", catName: "Name", catFurigana: "Phonetic", catHonorific: "Honorific",
+        contactMethod: "Communication", catPhone: "Phone", catMobile: "Mobile", catEmail: "Email",
+        addressAndNotes: "Address & Notes", catPostal: "Postal Code", catAddress1: "Address 1", catAddress2: "Address 2", catNotes: "Notes",
+        catalogAndQR: "Catalog Links & QR Code", addLink: "Add Link", noCatalogLinks: "No catalog links added yet",
+        catalogName: "Catalog Name", catalogUrl: "URL", qrPreview: "QR Preview",
+        cancel: "Cancel", close: "Close", saveData: "Save Data",
+        adminLogin: "Admin Auth", adminLoginDesc: "Please enter your admin email and password to authenticate.",
+        adminEmailPlaceholder: "Enter Email...", passwordPlaceholder: "Enter password...", login: "Login",
+        deleteConfirmTitle: "Are you sure you want to delete this data?", deleteConfirmDesc: "This action cannot be undone", confirmDelete: "Confirm Delete",
+        historyTitle: "Change History", versionList: "Version List (Max 10)", currentData: "Current Data",
+        version: "Version", currentVersion: "Current Version", historicalVersion: "Historical Version", catAddress: "Address",
+        toastLogout: "Logged out, switched to guest mode", toastLogin: "Logged into admin mode successfully", toastWrongPwd: "Login failed, check email or password",
+        toastOcrFail: "Card recognition failed. Please enter manually or try again.", toastRequired: "Please enter at least a name or company name",
+        toastDbNotReady: "Database not ready yet, please try again later.", toastSaveFail: "Failed to save",
+        toastAdminOnlyDelete: "Only admins can delete data", toastDeleted: "Data deleted successfully", toastDeleteFail: "Failed to delete data",
+        toastAdminOnlyHistory: "Only admins can view history", toastImportSuccess: "Successfully imported {0} records! Synced to cloud.", toastImportFail: "Import error, please try again later.",
+        pwaPrompt: "Tap the share button below and select 'Add to Home Screen' to install this app.",
+        egCategory: "Ex: Tiles", egCompany: "Ex: Tech Corp.", egCatalog: "Ex: 2025 Catalog", egYear: "Ex: 2026",
+        quickFilter: "Quick Filter:", clickToFilter: "Click to toggle this filter",
+        listView: "List View", mapView: "Map View", mapNav: "Navigate via Google Maps", mapNoKey: "Google Maps API Key not set", mapKeyHint: "Please enter your key in `googleMapsApiKey` at the top of the code to unlock full map features and pin display.",
+        aiAutoComplete: "AI Auto-Complete", toastAiSuccess: "AI auto-completed successfully via web!", toastAiFail: "AI auto-complete failed, check company name/URL", toastNeedCompany: "Please enter 'Company Name' first to use AI",
+        advFilters: "Advanced Filters", sortBy: "Sort By", sortNewest: "Newest Updated", sortOldest: "Oldest Created", filterCatalog: "Catalog Status", hasCatalog: "Has Catalog Only", multiCategory: "Select Categories", clearFilters: "Clear Filters",
+        projectFolders: "Project Folders", addProject: "Add", projectPlaceholder: "Enter project name (Press Enter)", allProjects: "All Vendors", noProject: "Uncategorized",
+        sortManual: "Manual Drag Sort", disableSortOnFilter: "Please clear all filters and search before drag-sorting.", toastLocalSortOnly: "Sorted (Local preview only. Admin login required to save)", toastSortSaved: "Custom sort saved to cloud successfully",
+        help: "Help", helpTitle: "Instructions & Shortcuts", helpDesc: "Welcome to Smartlist! Here are the main features and guides:",
+        helpAdd: "📷 Add Data: Tap 'Scan' or 'Upload' to parse business cards with AI. Enter a company name and tap 'AI Auto-Complete' to search for its address and phone online.",
+        helpSort: "🖱️ Drag Sort: Enable 'Manual Drag Sort' in Advanced Filters to freely rearrange cards. You can also drag to reorder catalog links when editing.",
+        helpProject: "📁 Project Folders: Add project tags when editing a card to easily filter and find specific vendors on the home screen.",
+        helpAdmin: "🛡️ Permissions: Users can add/edit data. Switch to 'Admin' (top right) to unlock delete, history view, and CSV export features.",
+        helpShortcuts: "⌨️ Shortcuts:",
+        helpShortcutEsc: "• Esc key: Quickly close any open window or modal.",
+        helpShortcutEnter: "• Enter key: Quickly add a project in the input field, or submit the admin login form.",
+        sendEmail: "Send Email",
+        addContact: "Save to Phone Contacts"
+      }
+    };
+
+    const fetchWithRetry = async (url, options, retries = 5) => {
+      const delays = [1000, 2000, 4000, 8000, 16000];
+      for (let i = 0; i < retries; i++) {
+        try {
+          const res = await fetch(url, options);
+          if (!res.ok) throw new Error(`HTTP error! status: ${res.status}`);
+          return await res.json();
+        } catch (err) {
+          if (i === retries - 1) throw err;
+          await new Promise(resolve => setTimeout(resolve, delays[i]));
+        }
+      }
+    };
+
+    const getNeonTagStyle = (text) => {
+      if (!text) return { backgroundColor: '#f3f4f6', color: '#374151' };
+      const neonColors = [
+        { bg: '#E0FF00', text: '#000000' }, { bg: '#00F0FF', text: '#000000' },
+        { bg: '#FF0055', text: '#FFFFFF' }, { bg: '#00FF66', text: '#000000' },
+        { bg: '#FF4F00', text: '#FFFFFF' }, { bg: '#9D00FF', text: '#FFFFFF' },
+        { bg: '#FFFF00', text: '#000000' }, { bg: '#FF00FF', text: '#FFFFFF' },
+      ];
+      let hash = 0;
+      for (let i = 0; i < text.length; i++) {
+        hash = text.charCodeAt(i) + ((hash << 5) - hash);
+      }
+      const index = Math.abs(hash) % neonColors.length;
+      const color = neonColors[index];
+      return { 
+        backgroundColor: color.bg, 
+        color: color.text,
+        border: `1px solid ${color.text === '#000000' ? 'rgba(0,0,0,0.1)' : 'rgba(255,255,255,0.2)'}`
+      };
+    };
+
+    function App() {
+      const currentYear = new Date().getFullYear().toString();
+
+      const [lang, setLang] = useState('ja');
+      const [viewMode, setViewMode] = useState('list');
+      
+      const [showAdvFilters, setShowAdvFilters] = useState(false);
+      const [sortOrder, setSortOrder] = useState('desc'); 
+      const [selectedCategories, setSelectedCategories] = useState([]); 
+      const [selectedProject, setSelectedProject] = useState(''); 
+      const [mustHaveCatalog, setMustHaveCatalog] = useState(false);
+
+      const t = (key, arg1) => {
+        let str = (translations[lang] && translations[lang][key]) || translations['zh'][key] || key;
+        if (arg1 !== undefined) {
+          str = str.replace('{0}', arg1);
+        }
+        return str;
+      };
+
+      const [isAdmin, setIsAdmin] = useState(false);
+      const [showAdminLogin, setShowAdminLogin] = useState(false);
+      const [adminEmail, setAdminEmail] = useState('');
+      const [adminPassword, setAdminPassword] = useState('');
+      const [adminError, setAdminError] = useState('');
+      
+      const [showHelp, setShowHelp] = useState(false); 
+
+      const [deleteId, setDeleteId] = useState(null);
+      const [toast, setToast] = useState('');
+
+      const showToast = (msg) => {
+        setToast(msg);
+        setTimeout(() => setToast(''), 3000);
+      };
+
+      const [user, setUser] = useState(null);
+      const [isDbReady, setIsDbReady] = useState(false);
+
+      // ★ 全域快捷鍵監聽
+      useEffect(() => {
+        const handleKeyDown = (e) => {
+          if (e.key === 'Escape') {
+            setIsModalOpen(false);
+            setShowAdminLogin(false);
+            setDeleteId(null);
+            setHistoryVendor(null);
+            setShowHelp(false);
+          }
+        };
+        window.addEventListener('keydown', handleKeyDown);
+        return () => window.removeEventListener('keydown', handleKeyDown);
+      }, []);
+
+      useEffect(() => {
+        const initAuth = async () => {
+          try {
+            const token = typeof __initial_auth_token !== 'undefined' ? __initial_auth_token : null;
+            if (token) {
+              try {
+                await signInWithCustomToken(auth, token);
+              } catch (tokenErr) {
+                console.warn("系統 Token 與您的 Firebase 專案不匹配，降級為匿名登入...", tokenErr);
+                await signInAnonymously(auth);
+              }
+            } else {
+              await signInAnonymously(auth);
+            }
+          } catch (error) {
+            console.error("Auth init error:", error);
+          }
+        };
+        initAuth();
+        
+        const unsubscribe = onAuthStateChanged(auth, (currentUser) => {
+          setUser(currentUser);
+          if (currentUser && currentUser.email && ADMIN_EMAILS.includes(currentUser.email)) {
+            setIsAdmin(true);
+          } else {
+            setIsAdmin(false);
+          }
+        });
+        return () => unsubscribe();
+      }, []);
+
+      const [isStandalone, setIsStandalone] = useState(false);
+      const [showPwaPrompt, setShowPwaPrompt] = useState(false);
+
+      useEffect(() => {
+        const isIOSStandalone = window.navigator.standalone === true;
+        const isAndroidStandalone = window.matchMedia('(display-mode: standalone)').matches;
+        const standalone = isIOSStandalone || isAndroidStandalone;
+        setIsStandalone(standalone);
+
+        // 偵測 iOS
+        const isIOS = (/iPad|iPhone|iPod/.test(navigator.userAgent) || (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1)) && !window.MSStream;
+        
+        if (isIOS && !standalone) {
+          setShowPwaPrompt(true);
+        }
+
+        // PWA Icon 改為 S L 幾何排版 + 三橫線 + 右側小人平衡設計
+        const iconSvg = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 970 970" width="256" height="256">
+          <rect width="970" height="970" fill="#f7f6f3" />
+          <g transform="translate(0, 110)">
+            <!-- S 與 L 的主體 -->
+            <g fill="none" stroke="#111827" stroke-width="100" stroke-linecap="butt" stroke-linejoin="miter">
+              <path d="M 100 450 L 345 450 A 75 75 0 0 0 345 300 L 225 300 A 75 75 0 0 1 225 150 L 470 150" />
+              <path d="M 600 100 L 600 375 A 75 75 0 0 0 675 450 L 870 450" />
+            </g>
+            <!-- 右下角的圓點 (與L右邊緣完美切齊) -->
+            <circle cx="820" cy="600" r="50" fill="#111827" />
+            <!-- 下方的三條橫線 (與S左邊緣完美切齊，並對齊圓點高度) -->
+            <g stroke="#111827" stroke-width="20" stroke-linecap="butt">
+              <line x1="100" y1="560" x2="710" y2="560" />
+              <line x1="100" y1="600" x2="710" y2="600" />
+              <line x1="100" y1="640" x2="710" y2="640" />
+            </g>
+            <!-- L 右側負空間的小人圖示 (填補畫面平衡，改為亮霓虹綠色) -->
+            <circle cx="760" cy="180" r="40" fill="#3dfc7a" />
+            <path d="M 660 340 C 660 230, 860 230, 860 340" fill="none" stroke="#3dfc7a" stroke-width="35" stroke-linecap="round" />
+          </g>
+        </svg>`;
+        
+        // 使用 unescape 與 encodeURIComponent 安全轉換非 Latin1 字元，修復 btoa 錯誤
+        const utf8ToBase64 = (str) => window.btoa(unescape(encodeURIComponent(str)));
+        const iconDataUrl = "data:image/svg+xml;base64," + utf8ToBase64(iconSvg);
+
+        let linkIcon = document.querySelector('link[rel="apple-touch-icon"]');
+        let favIcon = document.querySelector('link[rel="icon"]');
+        if (!linkIcon) {
+          linkIcon = document.createElement('link');
+          linkIcon.rel = 'apple-touch-icon';
+          document.head.appendChild(linkIcon);
+        }
+        if (!favIcon) {
+          favIcon = document.createElement('link');
+          favIcon.rel = 'icon';
+          document.head.appendChild(favIcon);
+        }
+        linkIcon.href = iconDataUrl;
+        favIcon.href = iconDataUrl;
+      }, []);
+
+      const [vendors, setVendors] = useState([]);
+      const [searchTerm, setSearchTerm] = useState('');
+      
+      const [draggedVendorIdx, setDraggedVendorIdx] = useState(null);
+      const [draggedCatalogIdx, setDraggedCatalogIdx] = useState(null);
+      
+      useEffect(() => {
+        if (!user) return;
+
+        try {
+          const vendorsRef = collection(db, 'public_vendors');
+          const unsubscribe = onSnapshot(vendorsRef, (snapshot) => {
+            const data = [];
+            snapshot.forEach((doc) => {
+              data.push({ id: doc.id, ...doc.data() });
+            });
+            setVendors(data);
+            setIsDbReady(true);
+          }, (error) => {
+            console.error("Firestore fetch error:", error);
+            setIsDbReady(false);
+          });
+          return () => unsubscribe();
+        } catch (e) {
+           console.log("Firestore not available locally");
+           setIsDbReady(true);
+        }
+      }, [user]);
+
+      const isFilterActive = searchTerm || selectedCategories.length > 0 || selectedProject || mustHaveCatalog;
+      useEffect(() => {
+        if (sortOrder === 'manual' && isFilterActive) {
+           setSortOrder('desc');
+        }
+      }, [isFilterActive, sortOrder]);
+      
+      const [isModalOpen, setIsModalOpen] = useState(false);
+      const [isProcessing, setIsProcessing] = useState(false);
+      const [frontImage, setFrontImage] = useState(null);
+      const [backImage, setBackImage] = useState(null);
+      const [editingId, setEditingId] = useState(null);
+      const [projectInput, setProjectInput] = useState(''); 
+      
+      const [historyVendor, setHistoryVendor] = useState(null);
+      const [selectedHistoryIndex, setSelectedHistoryIndex] = useState(0);
+
+      const initialFormState = {
+        dataYear: currentYear, category: '', company: '', hp: '', department: '', name: '', 
+        furigana: '', honorific: '', phone: '', mobile: '', email: '', 
+        postalCode: '', address1: '', address2: '', notes: '', logo: '', catalogs: [], projects: [], lastUpdated: '', history: [], sortIndex: 0
+      };
+      const [formData, setFormData] = useState(initialFormState);
+
+      const fileInputRef = useRef(null);
+      const cameraInputRef = useRef(null);
+      const csvImportRef = useRef(null);
+      const modalFrontRef = useRef(null);
+      const modalBackRef = useRef(null);
+      const logoInputRef = useRef(null);
+
+      const formatDate = (isoString) => {
+        if (!isoString) return '';
+        try {
+          const date = new Date(isoString);
+          return date.toLocaleString(lang === 'zh' ? 'zh-TW' : lang === 'ja' ? 'ja-JP' : 'en-US', {
+            year: 'numeric', month: 'numeric', day: 'numeric',
+            hour: '2-digit', minute: '2-digit', second: '2-digit'
+          });
+        } catch(e) {
+          return '';
+        }
+      };
+
+      const toggleAdmin = async () => {
+        if (isAdmin) {
+          try {
+            await signOut(auth);
+            await signInAnonymously(auth);
+            showToast(t('toastLogout'));
+          } catch (e) {
+            console.error("Logout error:", e);
+          }
+        } else {
+          setShowAdminLogin(true);
+        }
+      };
+
+      const handleAdminLoginSubmit = async () => {
+        if (!adminEmail || !adminPassword) {
+          setAdminError(t('toastRequired'));
+          return;
+        }
+        try {
+          await signInWithEmailAndPassword(auth, adminEmail, adminPassword);
+          setShowAdminLogin(false);
+          setAdminEmail('');
+          setAdminPassword('');
+          setAdminError('');
+          showToast(t('toastLogin'));
+        } catch (error) {
+          console.error("Login error:", error);
+          setAdminError(t('toastWrongPwd'));
+        }
+      };
+
+      const getMimeType = (dataUrl) => dataUrl.split(';')[0].split(':')[1];
+
+      const handleFileChange = async (e) => {
+        const file = e.target.files[0];
+        if (!file) return;
+        const reader = new FileReader();
+        reader.onloadend = () => {
+          setFrontImage(reader.result);
+          setBackImage(null);
+          processBusinessCard(reader.result, null);
+        };
+        reader.readAsDataURL(file);
+        setIsModalOpen(true);
+        setEditingId(null);
+        setFormData(initialFormState);
+        e.target.value = '';
+      };
+
+      const handleSideImageChange = async (e, side) => {
+        const file = e.target.files[0];
+        if (!file) return;
+        const reader = new FileReader();
+        reader.onloadend = () => {
+          if (side === 'front') {
+            setFrontImage(reader.result);
+            processBusinessCard(reader.result, backImage);
+          } else {
+            setBackImage(reader.result);
+            processBusinessCard(frontImage, reader.result);
+          }
+        };
+        reader.readAsDataURL(file);
+        e.target.value = '';
+      };
+
+      const handleLogoChange = (e) => {
+        const file = e.target.files[0];
+        if (!file) return;
+        const reader = new FileReader();
+        reader.onloadend = () => {
+          setFormData(prev => ({ ...prev, logo: reader.result }));
+        };
+        reader.readAsDataURL(file);
+        e.target.value = '';
+      };
+
+      const handleAddCatalog = () => {
+        setFormData(prev => ({ 
+          ...prev, 
+          catalogs: [...(prev.catalogs || []), { id: Date.now().toString() + Math.random().toString(36).substring(7), name: '', url: '' }] 
+        }));
+      };
+
+      const handleCatalogChange = (id, field, value) => {
+        setFormData(prev => ({
+          ...prev,
+          catalogs: prev.catalogs.map(c => c.id === id ? { ...c, [field]: value } : c)
+        }));
+      };
+
+      const handleRemoveCatalog = (id) => {
+        setFormData(prev => ({
+          ...prev,
+          catalogs: prev.catalogs.filter(c => c.id !== id)
+        }));
+      };
+
+      const handleAddProject = () => {
+        if (!projectInput.trim()) return;
+        if (!formData.projects) formData.projects = [];
+        if (!formData.projects.includes(projectInput.trim())) {
+          setFormData(prev => ({ ...prev, projects: [...(prev.projects || []), projectInput.trim()] }));
+        }
+        setProjectInput('');
+      };
+
+      const handleRemoveProject = (p) => {
+        setFormData(prev => ({ ...prev, projects: (prev.projects || []).filter(item => item !== p) }));
+      };
+
+      // ★ 產生並下載 vCard
+      const handleDownloadVCard = (vendor, e) => {
+        e.stopPropagation();
+        const parts = [
+          'BEGIN:VCARD',
+          'VERSION:3.0',
+          `FN:${vendor.name || vendor.company || 'Unknown'} ${vendor.honorific || ''}`.trim(),
+          vendor.company ? `ORG:${vendor.company}` : '',
+          vendor.department ? `TITLE:${vendor.department}` : '',
+          vendor.phone ? `TEL;TYPE=WORK,VOICE:${vendor.phone}` : '',
+          vendor.mobile ? `TEL;TYPE=CELL,VOICE:${vendor.mobile}` : '',
+          vendor.email ? `EMAIL;TYPE=WORK:${vendor.email}` : '',
+          vendor.hp ? `URL:${vendor.hp}` : '',
+          (vendor.address1 || vendor.address2 || vendor.postalCode) ? `ADR;TYPE=WORK:;;${vendor.address1 || ''} ${vendor.address2 || ''};;;${vendor.postalCode || ''};` : '',
+          vendor.notes ? `NOTE:${vendor.notes}` : '',
+          'END:VCARD'
+        ];
+        
+        const vcard = parts.filter(Boolean).join('\r\n');
+        const blob = new Blob(['\ufeff' + vcard], { type: 'text/vcard;charset=utf-8;' });
+        const url = URL.createObjectURL(blob);
+        const link = document.createElement('a');
+        link.href = url;
+        link.setAttribute('download', `${vendor.name || vendor.company || 'contact'}.vcf`);
+        document.body.appendChild(link);
+        link.click();
+        document.body.removeChild(link);
+        URL.revokeObjectURL(url);
+      };
+
+      const processBusinessCard = async (fImg, bImg) => {
+        if (!fImg && !bImg) return;
+        setIsProcessing(true);
+        try {
+          const modelName = apiKey ? "gemini-2.5-flash" : "gemini-2.5-flash-preview-09-2025";
+          const url = `https://generativelanguage.googleapis.com/v1beta/models/${modelName}:generateContent?key=${apiKey}`;
+          const ocrPrompt = "Extract information from this business card image(s) (front and potentially back). Return strictly in the specified JSON format. If a field is not found, return an empty string. Convert Japanese names to Katakana for the 'furigana' field if applicable. Default 'honorific' to '様' for Japanese or blank otherwise. Split addresses into address1 (prefecture/city/street) and address2 (building/floor).";
+          
+          const parts = [{ text: ocrPrompt }];
+          if (fImg) parts.push({ inlineData: { mimeType: getMimeType(fImg), data: fImg.split(',')[1] } });
+          if (bImg) parts.push({ inlineData: { mimeType: getMimeType(bImg), data: bImg.split(',')[1] } });
+
+          const payload = {
+            contents: [{ role: "user", parts: parts }],
+            generationConfig: {
+              responseMimeType: "application/json",
+              responseSchema: {
+                type: "OBJECT",
+                properties: {
+                  dataYear: { type: "STRING", description: "Year printed on the card" },
+                  category: { type: "STRING", description: "Vendor category/industry (e.g. Waterproofing, Tiles)" },
+                  company: { type: "STRING", description: "Company name" },
+                  hp: { type: "STRING", description: "Company website URL" },
+                  department: { type: "STRING", description: "Department and title" },
+                  name: { type: "STRING", description: "Contact person full name" },
+                  furigana: { type: "STRING", description: "Phonetic reading of name (Katakana)" },
+                  honorific: { type: "STRING", description: "Honorific title (e.g. 様)" },
+                  phone: { type: "STRING", description: "Company phone number" },
+                  mobile: { type: "STRING", description: "Mobile phone number" },
+                  email: { type: "STRING", description: "Email address" },
+                  postalCode: { type: "STRING", description: "Postal code" },
+                  address1: { type: "STRING", description: "Address part 1 (State/City/Street)" },
+                  address2: { type: "STRING", description: "Address part 2 (Building/Floor)" },
+                  notes: { type: "STRING", description: "Additional notes or remarks" }
+                }
+              }
+            }
+          };
+
+          const result = await fetchWithRetry(url, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload) });
+          const extractedText = result.candidates && result.candidates[0] && result.candidates[0].content && result.candidates[0].content.parts && result.candidates[0].content.parts[0] && result.candidates[0].content.parts[0].text;
+          
+          if (extractedText) {
+            const parsedData = JSON.parse(extractedText);
+            if (!parsedData.honorific && lang === 'ja') parsedData.honorific = '様';
+            if (!parsedData.dataYear) parsedData.dataYear = currentYear; 
+            setFormData(prev => ({ ...prev, ...parsedData }));
+          }
+        } catch (error) {
+          console.error("OCR 處理失敗:", error);
+          showToast(t('toastOcrFail'));
+        } finally {
+          setIsProcessing(false);
+        }
+      };
+
+      const handleInputChange = (e) => {
+        const { name, value } = e.target;
+        setFormData(prev => ({ ...prev, [name]: value }));
+      };
+
+      const handleAIAutoComplete = async () => {
+        if (!formData.company) {
+          showToast(t('toastNeedCompany'));
+          return;
+        }
+        setIsProcessing(true);
+        try {
+          const modelName = apiKey ? "gemini-2.5-flash" : "gemini-2.5-flash-preview-09-2025";
+          const url = `https://generativelanguage.googleapis.com/v1beta/models/${modelName}:generateContent?key=${apiKey}`;
+          const prompt = `Search the public internet to find business contact information for the company "${formData.company}" in Japan (or matching the provided website "${formData.hp}"). Return strictly in the specified JSON format. If a field cannot be verified, return an empty string. Split the address into postalCode, address1 (prefecture/city/ward/street), and address2 (building/floor).`;
+
+          const payload = {
+            contents: [{ role: "user", parts: [{ text: prompt }] }],
+            tools: [{ google_search: {} }],
+            generationConfig: {
+              responseMimeType: "application/json",
+              responseSchema: {
+                type: "OBJECT",
+                properties: {
+                  category: { type: "STRING", description: "Vendor category/industry (e.g. Waterproofing, Tiles, IT)" },
+                  phone: { type: "STRING", description: "Company main phone number" },
+                  postalCode: { type: "STRING", description: "Postal code (e.g. 100-0001)" },
+                  address1: { type: "STRING", description: "Address part 1 (Prefecture, City, Ward, Street)" },
+                  address2: { type: "STRING", description: "Address part 2 (Building, Floor)" },
+                  hp: { type: "STRING", description: "Official website URL" }
+                }
+              }
+            }
+          };
+
+          const result = await fetchWithRetry(url, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload) });
+          const extractedText = result.candidates && result.candidates[0] && result.candidates[0].content && result.candidates[0].content.parts && result.candidates[0].content.parts[0] && result.candidates[0].content.parts[0].text;
+          
+          if (extractedText) {
+            const parsedData = JSON.parse(extractedText);
+            setFormData(prev => ({
+              ...prev,
+              category: prev.category || parsedData.category || '',
+              phone: prev.phone || parsedData.phone || '',
+              postalCode: prev.postalCode || parsedData.postalCode || '',
+              address1: prev.address1 || parsedData.address1 || '',
+              address2: prev.address2 || parsedData.address2 || '',
+              hp: prev.hp || parsedData.hp || ''
+            }));
+            showToast(t('toastAiSuccess'));
+          } else {
+            showToast(t('toastAiFail'));
+          }
+        } catch (error) {
+          console.error("AI Auto-complete error:", error);
+          showToast(t('toastAiFail'));
+        } finally {
+          setIsProcessing(false);
+        }
+      };
+
+      const handleSave = async () => {
+        if (!formData.name && !formData.company) {
+          showToast(t('toastRequired'));
+          return;
+        }
+        if (!user) {
+          showToast(t('toastDbNotReady'));
+          return;
+        }
+        setIsProcessing(true);
+        const now = new Date().toISOString();
+        
+        try {
+          const vendorsRef = collection(db, 'public_vendors');
+
+          if (editingId) {
+            const existingVendor = vendors.find(v => v.id === editingId);
+            const snapshot = { ...existingVendor };
+            delete snapshot.history; 
+            const newHistory = [{ updatedAt: snapshot.lastUpdated || now, data: snapshot }, ...(existingVendor.history || [])].slice(0, 10);
+            const docRef = doc(vendorsRef, editingId);
+            await setDoc(docRef, { ...formData, id: editingId, lastUpdated: now, history: newHistory });
+          } else {
+            const newId = Date.now().toString();
+            const docRef = doc(vendorsRef, newId);
+            await setDoc(docRef, { ...formData, id: newId, sortIndex: vendors.length, lastUpdated: now, history: [] });
+          }
+          closeModal();
+        } catch (error) {
+          console.error("Save error:", error);
+          if (editingId) {
+             setVendors(vendors.map(v => v.id === editingId ? { ...formData, id: editingId, lastUpdated: now } : v));
+          } else {
+             setVendors([{ ...formData, id: Date.now().toString(), sortIndex: vendors.length, lastUpdated: now, history: [] }, ...vendors]);
+          }
+          closeModal();
+        } finally {
+          setIsProcessing(false);
+        }
+      };
+
+      const handleEdit = (vendor) => {
+        setFormData({ ...initialFormState, ...vendor, catalogs: vendor.catalogs || [] }); 
+        setEditingId(vendor.id);
+        setFrontImage(null);
+        setBackImage(null);
+        setIsModalOpen(true);
+      };
+
+      const handleDelete = async (id) => {
+        if (!isAdmin) {
+          showToast(t('toastAdminOnlyDelete'));
+          return;
+        }
+        if (!user) return;
+        setDeleteId(id);
+      };
+
+      const confirmDelete = async () => {
+        if (!user || !deleteId) return;
+        try {
+          const docRef = doc(db, 'public_vendors', deleteId);
+          await deleteDoc(docRef);
+          showToast(t('toastDeleted'));
+        } catch (error) {
+          console.error("Delete error:", error);
+          setVendors(vendors.filter(v => v.id !== deleteId));
+          showToast(t('toastDeleted'));
+        }
+        setDeleteId(null);
+      };
+
+      const openHistory = (vendor) => {
+        if (!isAdmin) {
+          showToast(t('toastAdminOnlyHistory'));
+          return;
+        }
+        setHistoryVendor(vendor);
+        setSelectedHistoryIndex(0);
+      };
+
+      const closeModal = () => {
+        setIsModalOpen(false);
+        setIsProcessing(false);
+        setFrontImage(null);
+        setBackImage(null);
+        setEditingId(null);
+        if (fileInputRef.current) fileInputRef.current.value = '';
+        if (cameraInputRef.current) cameraInputRef.current.value = '';
+      };
+
+      const parseCSVRow = (str) => {
+        let result = [];
+        let cur = '';
+        let inQuotes = false;
+        for (let i = 0; i < str.length; i++) {
+            if (str[i] === '"') {
+                inQuotes = !inQuotes;
+            } else if (str[i] === ',' && !inQuotes) {
+                result.push(cur.trim());
+                cur = '';
+            } else {
+                cur += str[i];
+            }
+        }
+        result.push(cur.trim());
+        return result.map(s => s.replace(/^"|"$/g, ''));
+      };
+
+      const handleImportCSV = (e) => {
+        const file = e.target.files[0];
+        if (!file) return;
+
+        const reader = new FileReader();
+        reader.onload = async (event) => {
+          const buffer = event.target.result;
+          const uint8Array = new Uint8Array(buffer);
+          
+          let text = '';
+          try {
+            const utf8Decoder = new TextDecoder('utf-8', { fatal: true });
+            text = utf8Decoder.decode(uint8Array);
+          } catch (err) {
+            const sjisDecoder = new TextDecoder('shift-jis');
+            text = sjisDecoder.decode(uint8Array);
+          }
+
+          const lines = text.split(/\r?\n/);
+          if (lines.length < 2) return;
+
+          const newVendors = [];
+          const now = new Date().toISOString();
+
+          for (let i = 1; i < lines.length; i++) {
+            if (!lines[i].trim()) continue;
+            const row = parseCSVRow(lines[i]);
+            if (row.length < 2) continue;
+
+            let parsedDataYear = currentYear;
+            let parsedCatalogs = [];
+            let parsedProjects = [];
+            let parsedLastUpdated = now;
+
+            if (row[14] && row[14].trim().startsWith('[')) {
+              try {
+                const rawCats = JSON.parse(row[14]);
+                parsedCatalogs = rawCats.map(c => ({ id: Date.now().toString() + Math.random().toString(36).substring(7), name: c.n || '', url: c.u || '' }));
+              } catch(e) {}
+            } else {
+              parsedDataYear = row[14] || currentYear;
+              try {
+                if (row[15]) {
+                  const rawCats = JSON.parse(row[15]);
+                  parsedCatalogs = rawCats.map(c => ({ id: Date.now().toString() + Math.random().toString(36).substring(7), name: c.n || '', url: c.u || '' }));
+                }
+              } catch(e) {}
+              if (row[16]) {
+                parsedLastUpdated = row[16];
+              }
+              if (row[17]) {
+                try { parsedProjects = JSON.parse(row[17]); } catch(e) {}
+              }
+            }
+
+            newVendors.push({
+              id: Date.now().toString() + '-' + i,
+              category: row[0] || '', company: row[1] || '', hp: row[2] || '',
+              department: row[3] || '', name: row[4] || '', furigana: row[5] || '',
+              honorific: row[6] || (lang === 'ja' ? '様' : ''), phone: row[7] || '', mobile: row[8] || '',
+              email: row[9] || '', postalCode: row[10] || '', address1: row[11] || '',
+              address2: row[12] || '', notes: row[13] || '', dataYear: parsedDataYear, 
+              catalogs: parsedCatalogs, projects: parsedProjects, lastUpdated: parsedLastUpdated, history: [], sortIndex: i
+            });
+          }
+          
+          if (newVendors.length > 0 && user) {
+            try {
+              const vendorsRef = collection(db, 'public_vendors');
+              const chunks = [];
+              for (let i = 0; i < newVendors.length; i += 500) {
+                chunks.push(newVendors.slice(i, i + 500));
+              }
+              
+              for (const chunk of chunks) {
+                const batch = writeBatch(db);
+                chunk.forEach(v => {
+                  const docRef = doc(vendorsRef, v.id);
+                  batch.set(docRef, v);
+                });
+                await batch.commit();
+              }
+              showToast(t('toastImportSuccess', newVendors.length));
+            } catch (error) {
+              console.error("Batch import error:", error);
+              setVendors(prev => [...newVendors, ...prev]);
+              showToast(`Local import ${newVendors.length} records successful.`);
+            }
+          }
+        };
+        reader.readAsArrayBuffer(file);
+        e.target.value = ''; 
+      };
+
+      const handleExportCSV = () => {
+        if (!isAdmin) return;
+        
+        const headers = [
+          t('catCategory'), t('catCompany'), t('catHp'), t('catDept'), t('catName'), t('catFurigana'), 
+          t('catHonorific'), t('catPhone'), t('catMobile'), t('catEmail'), t('catPostal'), 
+          t('catAddress1'), t('catAddress2'), t('catNotes'), t('catYear'), "Catalogs(JSON)", t('lastUpdated'), "Projects(JSON)"
+        ];
+        
+        const csvContent = [
+          headers.join(','),
+          ...vendors.map(v => {
+            const catalogJson = v.catalogs && v.catalogs.length > 0 
+              ? JSON.stringify(v.catalogs.map(c => ({n: c.name, u: c.url}))) 
+              : "";
+            const projectJson = v.projects && v.projects.length > 0 ? JSON.stringify(v.projects) : "";
+            return [
+              v.category, v.company, v.hp, v.department, v.name, v.furigana, 
+              v.honorific, v.phone, v.mobile, v.email, v.postalCode, 
+              v.address1, v.address2, v.notes, v.dataYear, catalogJson, v.lastUpdated || '', projectJson
+            ].map(field => `"${(field || '').replace(/"/g, '""')}"`).join(',')
+          })
+        ].join('\n');
+
+        const blob = new Blob(['\uFEFF' + csvContent], { type: 'text/csv;charset=utf-8;' });
+        const link = document.createElement('a');
+        link.href = URL.createObjectURL(blob);
+        link.download = `VendorDB_${new Date().toISOString().slice(0,10)}.csv`;
+        document.body.appendChild(link);
+        link.click();
+        document.body.removeChild(link);
+      };
+
+      const handleVendorDrop = async (e, dropAbsoluteIndex) => {
+        e.preventDefault();
+        if (sortOrder !== 'manual' || draggedVendorIdx === null || draggedVendorIdx === dropAbsoluteIndex) return;
+
+        const newVendors = [...filteredVendors];
+        const draggedItem = newVendors[draggedVendorIdx];
+        newVendors.splice(draggedVendorIdx, 1);
+        newVendors.splice(dropAbsoluteIndex, 0, draggedItem);
+
+        // 重寫新陣列的 sortIndex
+        newVendors.forEach((v, i) => { v.sortIndex = i; });
+        setVendors(newVendors); 
+
+        if (!isAdmin) {
+            showToast(t('toastLocalSortOnly'));
+            return;
+        }
+
+        setIsProcessing(true);
+        try {
+            const vendorsRef = collection(db, 'public_vendors');
+            const chunks = [];
+            for (let i = 0; i < newVendors.length; i += 500) {
+              chunks.push(newVendors.slice(i, i + 500));
+            }
+            
+            for (const chunk of chunks) {
+              const batch = writeBatch(db);
+              chunk.forEach(v => {
+                const docRef = doc(vendorsRef, v.id);
+                batch.update(docRef, { sortIndex: v.sortIndex });
+              });
+              await batch.commit();
+            }
+            showToast(t('toastSortSaved'));
+        } catch(err) {
+            console.error("Sort save error:", err);
+            showToast(t('toastSaveFail'));
+        } finally {
+            setIsProcessing(false);
+            setDraggedVendorIdx(null);
+        }
+      };
+
+      const filteredVendors = vendors.filter(v => {
+        const matchSearch = !searchTerm || (
+          v.name?.includes(searchTerm) || 
+          v.company?.includes(searchTerm) || 
+          v.department?.includes(searchTerm) ||
+          v.dataYear?.includes(searchTerm) ||
+          v.category?.includes(searchTerm)
+        );
+        const matchCat = selectedCategories.length === 0 || selectedCategories.includes(v.category);
+        const matchCatalog = !mustHaveCatalog || (v.catalogs && v.catalogs.length > 0);
+        const matchProject = !selectedProject || (v.projects && v.projects.includes(selectedProject)); 
+        return matchSearch && matchCat && matchCatalog && matchProject;
+      }).sort((a, b) => {
+        if (sortOrder === 'manual') {
+          const idxA = a.sortIndex !== undefined ? a.sortIndex : Number.MAX_SAFE_INTEGER;
+          const idxB = b.sortIndex !== undefined ? b.sortIndex : Number.MAX_SAFE_INTEGER;
+          if (idxA !== idxB) return idxA - idxB;
+        }
+        const timeA = new Date(a.lastUpdated || parseInt(a.id.split('-')[0]) || 0).getTime();
+        const timeB = new Date(b.lastUpdated || parseInt(b.id.split('-')[0]) || 0).getTime();
+        return sortOrder === 'desc' ? timeB - timeA : timeA - timeB;
+      });
+
+      const ITEMS_PER_PAGE = 12;
+      const [currentPage, setCurrentPage] = useState(1);
+
+      useEffect(() => {
+        setCurrentPage(1);
+      }, [searchTerm, selectedCategories, mustHaveCatalog, sortOrder, selectedProject]);
+
+      const totalPages = Math.max(1, Math.ceil(filteredVendors.length / ITEMS_PER_PAGE));
+      const paginatedVendors = filteredVendors.slice(
+        (currentPage - 1) * ITEMS_PER_PAGE, 
+        currentPage * ITEMS_PER_PAGE
+      );
+
+      const uniqueCategories = [...new Set(vendors.map(v => v.category).filter(c => c && c.trim() !== ''))].sort();
+      const uniqueProjects = [...new Set(vendors.flatMap(v => v.projects || []).filter(p => p && p.trim() !== ''))].sort(); 
+      const markersRef = useRef([]);
+
+      useEffect(() => {
+        if (viewMode !== 'map') return;
+        
+        const container = document.getElementById('google-map-container');
+        if (!container) return;
+
+        const initMap = () => {
+          if (!window.google || !window.google.maps) return;
+          
+          const map = new window.google.maps.Map(container, {
+            center: { lat: 35.6895, lng: 139.6917 },
+            zoom: 12,
+            mapTypeControl: false,
+            streetViewControl: false,
+          });
+
+          const geocoder = new window.google.maps.Geocoder();
+          const bounds = new window.google.maps.LatLngBounds();
+          let delay = 0;
+          let validPins = 0;
+
+          markersRef.current.forEach(m => m.setMap(null));
+          markersRef.current = [];
+
+          filteredVendors.forEach((vendor) => {
+            const address = `${vendor.postalCode || ''} ${vendor.address1 || ''} ${vendor.address2 || ''}`.trim();
+            if (!address) return;
+
+            setTimeout(() => {
+              geocoder.geocode({ address: address }, (results, status) => {
+                if (status === 'OK' && results[0]) {
+                  const location = results[0].geometry.location;
+                  const marker = new window.google.maps.Marker({
+                    map: map,
+                    position: location,
+                    title: vendor.company || vendor.name,
+                    animation: window.google.maps.Animation.DROP
+                  });
+
+                  const infoWindow = new window.google.maps.InfoWindow({
+                    content: `
+                      <div style="padding: 4px; max-width: 220px; color: #111827; font-family: sans-serif;">
+                        <strong style="font-size: 14px; display: block; margin-bottom: 4px;">${vendor.company || vendor.name || ''}</strong>
+                        <div style="font-size: 12px; color: #4B5563; margin-bottom: 8px;">${address}</div>
+                        <a href="https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(address)}" target="_blank" style="font-size: 12px; color: #2563EB; text-decoration: none; font-weight: bold;">
+                          📍 ${t('mapNav')}
+                        </a>
+                      </div>
+                    `
+                  });
+
+                  marker.addListener('click', () => {
+                    infoWindow.open(map, marker);
+                  });
+
+                  markersRef.current.push(marker);
+                  bounds.extend(location);
+                  validPins++;
+
+                  if (validPins === 1) {
+                    map.setCenter(location);
+                    map.setZoom(15);
+                  } else {
+                    map.fitBounds(bounds);
+                  }
+                }
+              });
+            }, delay);
+            delay += 300;
+          });
+        };
+
+        if (window.google && window.google.maps) {
+          initMap();
+        } else if (googleMapsApiKey) {
+          const script = document.createElement('script');
+          script.src = `https://maps.googleapis.com/maps/api/js?key=${googleMapsApiKey}`;
+          script.async = true;
+          script.defer = true;
+          script.onload = initMap;
+          document.head.appendChild(script);
+        }
+      }, [viewMode, filteredVendors, lang]);
+
+      const renderHistoryDetails = (data) => {
+        if (!data) return null;
+        return (
+          <div className="space-y-4 text-sm">
+            <div className="grid grid-cols-2 gap-x-4 gap-y-2 border-b border-gray-200 pb-4">
+              <div><span className="text-gray-500 text-xs block">{t('catCompany')}</span><span className="font-medium">{data.company || '-'}</span></div>
+              <div><span className="text-gray-500 text-xs block">{t('catCategory')}</span>{data.category || '-'}</div>
+              <div><span className="text-gray-500 text-xs block">{t('catYear')}</span>{data.dataYear || '-'}</div>
+              <div><span className="text-gray-500 text-xs block">{t('catHp')}</span>{data.hp || '-'}</div>
+            </div>
+            <div className="grid grid-cols-2 gap-x-4 gap-y-2 border-b border-gray-200 pb-4">
+              <div className="col-span-2 sm:col-span-1"><span className="text-gray-500 text-xs block">{t('catDept')}</span>{data.department || '-'}</div>
+              <div className="col-span-2 sm:col-span-1"><span className="text-gray-500 text-xs block">{t('catName')}</span>{data.name || '-'} {data.honorific}</div>
+              <div className="col-span-2 sm:col-span-1"><span className="text-gray-500 text-xs block">{t('catFurigana')}</span>{data.furigana || '-'}</div>
+            </div>
+            <div className="grid grid-cols-2 gap-x-4 gap-y-2 border-b border-gray-200 pb-4">
+              <div><span className="text-gray-500 text-xs block">{t('catPhone')}</span>{data.phone || '-'}</div>
+              <div><span className="text-gray-500 text-xs block">{t('catMobile')}</span>{data.mobile || '-'}</div>
+              <div className="col-span-2"><span className="text-gray-500 text-xs block">{t('catEmail')}</span>{data.email || '-'}</div>
+            </div>
+            <div className="grid grid-cols-1 gap-y-2 border-b border-gray-200 pb-4">
+              <div><span className="text-gray-500 text-xs block">{t('catAddress')}</span>
+                {data.postalCode && `${data.postalCode} `}{data.address1} {data.address2}
+              </div>
+              <div><span className="text-gray-500 text-xs block">{t('catNotes')}</span>{data.notes || '-'}</div>
+            </div>
+          </div>
+        );
+      };
+
+      const showImagePanel = !editingId && (frontImage || backImage);
+
+      return (
+        <div className="min-h-screen bg-[#f7f6f3] text-gray-800 font-sans pb-[env(safe-area-inset-bottom)] flex flex-col">
+          
+          {showPwaPrompt && (
+            <div className="bg-gray-800 text-white px-4 py-3 flex items-center justify-between text-sm shadow-md pt-[env(safe-area-inset-top)] z-50">
+              <div className="flex items-center gap-2">
+                <Share size={16} />
+                <span>{t('pwaPrompt')}</span>
+              </div>
+              <button onClick={() => setShowPwaPrompt(false)} className="p-1 hover:bg-gray-700 rounded-full transition-colors">
+                <X size={16} />
+              </button>
+            </div>
+          )}
+
+          <header className={`bg-white shadow-sm border-b border-gray-200 sticky top-0 z-10 flex-none ${!showPwaPrompt ? 'pt-[env(safe-area-inset-top)]' : ''}`}>
+            <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 h-16 flex items-center justify-between">
+              <div className="flex items-center gap-3">
+                
+                {/* ★ 更新版精準幾何 S L 排版 Logo (三橫線 + 圓點 + 霓虹綠小人) */}
+                <div className="flex items-center cursor-help shrink-0" title="Smartlist">
+                  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 970 750" className="h-10 w-auto sm:h-12 drop-shadow-sm">
+                    <g fill="none" stroke="#111827" strokeWidth="100" strokeLinecap="butt" strokeLinejoin="miter">
+                      <path d="M 100 450 L 345 450 A 75 75 0 0 0 345 300 L 225 300 A 75 75 0 0 1 225 150 L 470 150" />
+                      <path d="M 600 100 L 600 375 A 75 75 0 0 0 675 450 L 870 450" />
+                    </g>
+                    <circle cx="820" cy="600" r="50" fill="#111827" />
+                    <g stroke="#111827" strokeWidth="20" strokeLinecap="butt">
+                      <line x1="100" y1="560" x2="710" y2="560" />
+                      <line x1="100" y1="600" x2="710" y2="600" />
+                      <line x1="100" y1="640" x2="710" y2="640" />
+                    </g>
+                    <circle cx="760" cy="180" r="40" fill="#3dfc7a" />
+                    <path d="M 660 340 C 660 230, 860 230, 860 340" fill="none" stroke="#3dfc7a" strokeWidth="35" strokeLinecap="round" />
+                  </svg>
+                </div>
+                
+                <div className="hidden sm:flex items-center gap-2 px-2 py-1 rounded-md bg-gray-50 border border-gray-200 ml-1">
+                  {isDbReady ? <Cloud size={14} className="text-gray-700" title={t('connected')} /> : <CloudOff size={14} className="text-gray-400" title={t('offline')} />}
+                  <div className="w-px h-3 bg-gray-300 mx-1"></div>
+                  <button 
+                    onClick={toggleAdmin}
+                    className={`flex items-center gap-1.5 px-2 py-0.5 rounded text-xs font-medium transition-colors ${isAdmin ? 'bg-gray-800 text-white' : 'text-gray-500 hover:bg-gray-200'}`}
+                    title={t('adminLogin')}
+                  >
+                    {isAdmin ? <ShieldCheck size={12}/> : <Shield size={12}/>}
+                    {isAdmin ? t('admin') : t('user')}
+                  </button>
+                </div>
+                
+                <div className="relative ml-1 flex items-center justify-center p-1.5 text-gray-500 hover:text-gray-800 hover:bg-gray-100 rounded-md transition-colors" title="Language">
+                  <select
+                    value={lang}
+                    onChange={(e) => setLang(e.target.value)}
+                    className="absolute inset-0 w-full h-full opacity-0 cursor-pointer appearance-none"
+                  >
+                    <option value="zh">繁中</option>
+                    <option value="ja">日本語</option>
+                    <option value="en">English</option>
+                  </select>
+                  <Globe size={18} className="pointer-events-none" />
+                </div>
+
+                <button 
+                  onClick={() => setShowHelp(true)}
+                  className="hidden sm:flex items-center gap-1.5 px-2 py-1.5 text-xs font-bold text-gray-500 hover:text-gray-800 hover:bg-gray-100 rounded-md transition-colors"
+                  title={t('help')}
+                >
+                  <HelpCircle size={16} />
+                </button>
+              </div>
+              
+              <div className="flex gap-2 sm:gap-3">
+                <button 
+                  onClick={() => setShowHelp(true)}
+                  className="sm:hidden flex items-center justify-center p-2 text-gray-500 hover:text-gray-800 hover:bg-gray-100 rounded-md transition-colors"
+                  title={t('help')}
+                >
+                  <HelpCircle size={20} />
+                </button>
+
+                <input type="file" accept=".csv" className="hidden" ref={csvImportRef} onChange={handleImportCSV} />
+                <input type="file" accept="image/*" className="hidden" ref={fileInputRef} onChange={handleFileChange} />
+                <input type="file" accept="image/*" capture="environment" className="hidden" ref={cameraInputRef} onChange={handleFileChange} />
+                <input type="file" accept="image/*" capture="environment" className="hidden" ref={modalFrontRef} onChange={(e) => handleSideImageChange(e, 'front')} />
+                <input type="file" accept="image/*" capture="environment" className="hidden" ref={modalBackRef} onChange={(e) => handleSideImageChange(e, 'back')} />
+                
+                <button 
+                  onClick={() => { if (csvImportRef.current) csvImportRef.current.click(); }}
+                  className="flex items-center justify-center p-2 sm:p-2.5 bg-white text-gray-700 border border-gray-200 rounded-lg hover:bg-gray-50 transition-colors shadow-sm"
+                  title={t('importCSV')}
+                >
+                  <FileUp size={18} />
+                </button>
+                {isAdmin && (
+                  <button 
+                    onClick={handleExportCSV}
+                    className="flex items-center justify-center p-2 sm:p-2.5 bg-white text-gray-700 border border-gray-200 rounded-lg hover:bg-gray-50 transition-colors shadow-sm"
+                    title={t('exportCSV')}
+                  >
+                    <Download size={18} />
+                  </button>
+                )}
+                <button 
+                  onClick={() => { if (fileInputRef.current) fileInputRef.current.click(); }}
+                  className="flex items-center justify-center p-2 sm:p-2.5 bg-white border border-gray-200 text-gray-700 rounded-lg hover:bg-gray-50 transition-colors shadow-sm"
+                  title={t('uploadCard')}
+                >
+                  <Upload size={18} />
+                </button>
+                <button 
+                  onClick={() => { if (cameraInputRef.current) cameraInputRef.current.click(); }}
+                  className="flex items-center justify-center p-2 sm:p-2.5 bg-gray-800 text-white rounded-lg hover:bg-gray-900 transition-colors shadow-sm"
+                  title={t('scanCamera')}
+                >
+                  <Camera size={18} />
+                </button>
+              </div>
+            </div>
+          </header>
+
+          <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6 sm:py-8 flex-1 w-full">
+            <div className="mb-6">
+              <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
+                
+                <div className="flex w-full md:w-auto gap-2">
+                  <div className="relative w-full md:w-80 shadow-sm rounded-lg flex-grow">
+                    <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" size={18} />
+                    <input 
+                      type="text" 
+                      placeholder={t('searchPlaceholder')} 
+                      value={searchTerm}
+                      onChange={(e) => setSearchTerm(e.target.value)}
+                      className="w-full pl-10 pr-4 py-2.5 sm:py-2 rounded-lg border border-gray-300 focus:ring-2 focus:ring-gray-200 focus:border-gray-400 outline-none transition-shadow text-base sm:text-sm bg-white"
+                    />
+                  </div>
+                  <button
+                    onClick={() => setShowAdvFilters(!showAdvFilters)}
+                    className={`shrink-0 px-3 py-2 rounded-lg border transition-colors flex items-center justify-center gap-2 shadow-sm ${showAdvFilters ? 'bg-gray-800 text-white border-gray-800' : 'bg-white text-gray-700 border-gray-300 hover:bg-gray-50'}`}
+                    title={t('advFilters')}
+                  >
+                    <SlidersHorizontal size={18} />
+                    <span className="hidden lg:inline text-sm font-medium">{t('advFilters')}</span>
+                    {(selectedCategories.length > 0 || mustHaveCatalog || sortOrder !== 'desc') && (
+                      <span className="w-2 h-2 rounded-full bg-[#E0FF00] ml-0.5 border border-black/10"></span>
+                    )}
+                  </button>
+                </div>
+
+                <div className="flex items-center gap-3 w-full md:w-auto justify-end">
+                  <div className="bg-gray-100 p-1 rounded-lg flex gap-1 border border-gray-200">
+                    <button onClick={() => setViewMode('list')} className={`p-1.5 rounded-md flex items-center justify-center transition-colors ${viewMode === 'list' ? 'bg-white shadow-sm text-gray-800' : 'text-gray-400 hover:text-gray-600'}`} title={t('listView')}>
+                      <List size={16} />
+                    </button>
+                    <button onClick={() => setViewMode('map')} className={`p-1.5 rounded-md flex items-center justify-center transition-colors ${viewMode === 'map' ? 'bg-white shadow-sm text-gray-800' : 'text-gray-400 hover:text-gray-600'}`} title={t('mapView')}>
+                      <Map size={16} />
+                    </button>
+                  </div>
+                  <div className="text-sm text-gray-500 font-medium whitespace-nowrap px-1 flex items-center gap-2">
+                    {t('totalVendors', filteredVendors.length)}
+                    <span className="sm:hidden ml-2 px-2 py-0.5 rounded border border-gray-200 bg-white text-[10px] flex items-center gap-1" onClick={toggleAdmin}>
+                       {isAdmin ? <ShieldCheck size={10}/> : <Shield size={10}/>} {isAdmin ? t('admin') : t('user')}
+                    </span>
+                  </div>
+                </div>
+              </div>
+
+              {user && (uniqueProjects.length > 0 || selectedProject) && (
+                <div className="flex items-center gap-2 overflow-x-auto no-scrollbar pb-3 pt-1 mb-2">
+                  <button onClick={() => setSelectedProject('')} className={`shrink-0 px-4 py-2 rounded-full text-sm font-bold transition-all shadow-sm flex items-center gap-2 border ${!selectedProject ? 'bg-gray-800 text-white border-gray-800' : 'bg-white text-gray-600 border-gray-200 hover:bg-gray-50'}`}>
+                    <FolderOpen size={16} className={!selectedProject ? 'text-gray-300' : 'text-gray-400'} /> {t('allProjects')}
+                  </button>
+                  {uniqueProjects.map(p => (
+                    <button key={p} onClick={() => setSelectedProject(p)} className={`shrink-0 px-4 py-2 rounded-full text-sm font-bold transition-all shadow-sm flex items-center gap-2 border ${selectedProject === p ? 'bg-blue-600 text-white border-blue-600 ring-2 ring-blue-100 ring-offset-1' : 'bg-white text-gray-600 border-gray-200 hover:bg-gray-50'}`}>
+                      <Folder size={16} className={selectedProject === p ? 'text-blue-200' : 'text-blue-500'} /> {p}
+                    </button>
+                  ))}
+                </div>
+              )}
+
+              {showAdvFilters && (
+                <div className="mt-4 p-4 sm:p-5 bg-white border border-gray-200 rounded-xl shadow-sm animate-in fade-in slide-in-from-top-2">
+                  <div className="flex justify-between items-center mb-4 border-b border-gray-100 pb-3">
+                    <h3 className="text-sm font-bold text-gray-800 flex items-center gap-2">
+                      <Filter size={16} className="text-gray-500"/> {t('advFilters')}
+                    </h3>
+                    <button 
+                      onClick={() => { setSelectedCategories([]); setMustHaveCatalog(false); setSortOrder('desc'); setSearchTerm(''); setSelectedProject(''); }}
+                      className="text-xs text-red-500 hover:text-red-700 font-medium transition-colors"
+                    >
+                      {t('clearFilters')}
+                    </button>
+                  </div>
+
+                  <div className="grid grid-cols-1 md:grid-cols-12 gap-6">
+                    <div className="md:col-span-5 space-y-5">
+                      <div>
+                        <label className="text-xs font-bold text-gray-500 uppercase tracking-wider mb-2 block">{t('sortBy')}</label>
+                        <div className="flex flex-wrap bg-gray-100 p-1 rounded-lg w-max border border-gray-200">
+                          <button onClick={() => setSortOrder('desc')} className={`px-3 py-1.5 text-xs font-medium rounded-md flex items-center gap-1.5 transition-colors ${sortOrder === 'desc' ? 'bg-white shadow text-gray-800' : 'text-gray-500 hover:text-gray-700'}`}>
+                            <ArrowDown size={14} /> {t('sortNewest')}
+                          </button>
+                          <button onClick={() => setSortOrder('asc')} className={`px-3 py-1.5 text-xs font-medium rounded-md flex items-center gap-1.5 transition-colors ${sortOrder === 'asc' ? 'bg-white shadow text-gray-800' : 'text-gray-500 hover:text-gray-700'}`}>
+                            <ArrowUp size={14} /> {t('sortOldest')}
+                          </button>
+                          <button 
+                            onClick={() => {
+                              if (isFilterActive) { showToast(t('disableSortOnFilter')); return; }
+                              setSortOrder('manual');
+                            }} 
+                            className={`px-3 py-1.5 text-xs font-medium rounded-md flex items-center gap-1.5 transition-colors ${sortOrder === 'manual' ? 'bg-white shadow text-gray-800 ring-2 ring-transparent' : 'text-gray-500 hover:text-gray-700'} ${isFilterActive ? 'opacity-50 cursor-not-allowed' : ''}`}
+                            title={isFilterActive ? t('disableSortOnFilter') : ''}
+                          >
+                            <GripVertical size={14} /> {t('sortManual')}
+                          </button>
+                        </div>
+                      </div>
+
+                      <div>
+                        <label className="text-xs font-bold text-gray-500 uppercase tracking-wider mb-2 block">{t('filterCatalog')}</label>
+                        <label className="flex items-center gap-2 cursor-pointer w-max group">
+                          <input 
+                            type="checkbox" 
+                            checked={mustHaveCatalog} 
+                            onChange={(e) => setMustHaveCatalog(e.target.checked)}
+                            className="w-4 h-4 rounded border-gray-300 text-gray-800 focus:ring-gray-800 cursor-pointer accent-gray-800"
+                          />
+                          <span className="text-sm font-medium text-gray-700 group-hover:text-black transition-colors flex items-center gap-1.5 select-none">
+                            <Book size={14} className="text-gray-400" /> {t('hasCatalog')}
+                          </span>
+                        </label>
+                      </div>
+                    </div>
+
+                    <div className="md:col-span-7">
+                      <label className="text-xs font-bold text-gray-500 uppercase tracking-wider mb-2 block">
+                        {t('multiCategory')} ({selectedCategories.length}/{uniqueCategories.length})
+                      </label>
+                      {uniqueCategories.length > 0 ? (
+                        <div className="flex flex-wrap gap-2">
+                          {uniqueCategories.map(cat => {
+                            const isSelected = selectedCategories.includes(cat);
+                            const style = isSelected ? getNeonTagStyle(cat) : { backgroundColor: 'white', color: '#6b7280', border: '1px solid #e5e7eb' };
+                            return (
+                              <button
+                                key={cat}
+                                onClick={() => setSelectedCategories(prev => prev.includes(cat) ? prev.filter(c => c !== cat) : [...prev, cat])}
+                                className={`px-2.5 py-1.5 text-xs font-bold rounded-md flex items-center gap-1.5 shadow-sm transition-all hover:opacity-80 ${isSelected ? 'ring-2 ring-offset-1 ring-gray-200' : ''}`}
+                                style={style}
+                              >
+                                {cat}
+                              </button>
+                            );
+                          })}
+                        </div>
+                      ) : (
+                        <div className="text-sm text-gray-400 italic">No categories available</div>
+                      )}
+                    </div>
+                  </div>
+                </div>
+              )}
+            </div>
+
+            {!user ? (
+               <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-8 sm:p-12 text-center flex flex-col items-center mx-2 sm:mx-0">
+                 <Loader2 className="animate-spin text-gray-400 mb-4" size={32} />
+                 <h3 className="text-lg font-medium text-gray-900 mb-1">{t('connectingDb')}</h3>
+               </div>
+            ) : filteredVendors.length === 0 ? (
+              <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-8 sm:p-12 text-center flex flex-col items-center mx-2 sm:mx-0">
+                <div className="bg-gray-100 p-4 rounded-full mb-4">
+                  <ImageIcon className="text-gray-400" size={32} />
+                </div>
+                <h3 className="text-lg font-medium text-gray-900 mb-1">{t('noData')}</h3>
+                <p className="text-gray-500 mb-6 max-w-sm text-sm sm:text-base">{t('noDataDesc')}</p>
+              </div>
+            ) : viewMode === 'map' ? (
+              <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-2 h-[600px] sm:h-[75vh] w-full flex flex-col relative overflow-hidden animate-in fade-in duration-300">
+                {!googleMapsApiKey && (
+                  <div className="absolute inset-0 bg-gray-900/5 z-10 flex flex-col items-center justify-center p-6 text-center backdrop-blur-[2px]">
+                    <div className="bg-white p-6 rounded-xl shadow-lg border border-gray-200 max-w-md">
+                      <Map size={36} className="mx-auto mb-4 text-gray-400" />
+                      <h3 className="text-lg font-bold text-gray-800 mb-2">{t('mapNoKey')}</h3>
+                      <p className="text-sm text-gray-500 mb-4">{t('mapKeyHint')}</p>
+                    </div>
+                  </div>
+                )}
+                <div id="google-map-container" className="w-full h-full rounded-lg bg-gray-100"></div>
+              </div>
+            ) : (
+              <div className="flex flex-col gap-6 animate-in fade-in duration-300">
+                <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4 sm:gap-5">
+                  {paginatedVendors.map((vendor, index) => {
+                    const absoluteIndex = (currentPage - 1) * ITEMS_PER_PAGE + index;
+                    return (
+                    <div 
+                      key={vendor.id} 
+                      draggable={sortOrder === 'manual'}
+                      onDragStart={(e) => {
+                        if (sortOrder !== 'manual') return;
+                        setDraggedVendorIdx(absoluteIndex);
+                        e.dataTransfer.effectAllowed = "move";
+                        e.currentTarget.style.opacity = '0.5';
+                      }}
+                      onDragEnd={(e) => {
+                        if (sortOrder !== 'manual') return;
+                        e.currentTarget.style.opacity = '1';
+                        setDraggedVendorIdx(null);
+                      }}
+                      onDragOver={(e) => {
+                        if (sortOrder !== 'manual') return;
+                        e.preventDefault();
+                      }}
+                      onDrop={(e) => handleVendorDrop(e, absoluteIndex)}
+                      className={`bg-white rounded-xl shadow-sm border border-gray-200 hover:shadow-md transition-all flex flex-col group relative ${sortOrder === 'manual' ? 'cursor-grab active:cursor-grabbing ring-2 ring-transparent hover:ring-gray-300' : ''}`}
+                    >
+                      
+                      {/* ★ 手動拖曳模式時顯示把手 */}
+                      {sortOrder === 'manual' && (
+                         <div className="absolute top-1/2 left-0 -translate-y-1/2 -translate-x-1/2 w-5 h-10 bg-white shadow-md border border-gray-200 rounded flex items-center justify-center text-gray-400 z-20 pointer-events-none">
+                           <GripVertical size={14} />
+                         </div>
+                      )}
+
+                      {/* ★ 新增：右上角快捷按鈕群 (通訊錄與 Email) */}
+                      <div className="absolute top-4 right-4 flex items-center gap-2 z-10">
+                        {/* 同步至通訊錄按鈕 (vCard) */}
+                        {(vendor.phone || vendor.mobile || vendor.name || vendor.company) && (
+                          <button 
+                            onClick={(e) => handleDownloadVCard(vendor, e)}
+                            className="w-8 h-8 bg-green-500 text-white hover:bg-green-600 active:bg-green-700 rounded-full transition-all shadow-md hover:shadow-lg flex items-center justify-center opacity-80 hover:opacity-100 hover:-translate-y-0.5"
+                            title={t('addContact')}
+                          >
+                            <UserPlus size={14} className="ml-0.5" />
+                          </button>
+                        )}
+                        {/* 發送 Email 按鈕 (強制使用 Gmail) */}
+                        {vendor.email && (
+                          <a 
+                            href={`https://mail.google.com/mail/?view=cm&fs=1&to=${encodeURIComponent(vendor.email)}&body=${encodeURIComponent(`${vendor.company ? vendor.company + '\n' : ''}${vendor.department ? vendor.department + '\n' : ''}${vendor.name || ''} ${vendor.honorific || ''}\n\n`)}`}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="w-8 h-8 bg-blue-500 text-white hover:bg-blue-600 active:bg-blue-700 rounded-full transition-all shadow-md hover:shadow-lg flex items-center justify-center opacity-80 hover:opacity-100 hover:-translate-y-0.5"
+                            title={t('sendEmail')}
+                            onClick={(e) => e.stopPropagation()}
+                          >
+                            <Send size={14} className="ml-0.5" />
+                          </a>
+                        )}
+                      </div>
+
+                      <div className="p-4 sm:p-5 flex-grow pr-20"> {/* 增加 pr-20 避免檔到兩個按鈕 */}
+                        <div className="flex items-center gap-3 mb-3">
+                          {vendor.logo ? (
+                            <img src={vendor.logo} alt="logo" className="w-10 h-10 rounded-lg object-cover border border-gray-200 shrink-0 bg-white" />
+                          ) : (
+                            <div className="w-10 h-10 rounded-lg bg-gray-50 flex items-center justify-center border border-gray-200 shrink-0">
+                              <Building2 size={18} className="text-gray-400" />
+                            </div>
+                          )}
+                          <h3 className="text-lg font-bold text-gray-900 line-clamp-1" title={vendor.company || t('noCompany')}>
+                            {vendor.company || '—'}
+                          </h3>
+                        </div>
+
+                        <div className="flex flex-wrap items-center gap-2 mb-4">
+                          {vendor.dataYear && (
+                            <div 
+                              className="px-2.5 py-1 text-xs font-bold rounded-md flex items-center gap-1.5 shadow-sm bg-gray-100 text-gray-700 border border-gray-200 pointer-events-none"
+                            >
+                              <Calendar size={12} className="text-gray-500" /> {vendor.dataYear}
+                            </div>
+                          )}
+                          {vendor.category && (
+                            <button 
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                if (!selectedCategories.includes(vendor.category)) {
+                                  setSelectedCategories(prev => [...prev, vendor.category]);
+                                }
+                                setShowAdvFilters(true);
+                                window.scrollTo({ top: 0, behavior: 'smooth' });
+                              }}
+                              className="px-2.5 py-1 text-xs font-bold rounded-md flex items-center gap-1.5 shadow-sm hover:opacity-80 hover:-translate-y-0.5 transition-all cursor-pointer z-10"
+                              style={getNeonTagStyle(vendor.category)}
+                              title={t('clickToFilter')}
+                            >
+                              <Tag size={12} /> {vendor.category}
+                            </button>
+                          )}
+                        </div>
+                        
+                        <div className="bg-[#fafafa] rounded-lg p-3 mb-4 border border-gray-100">
+                          <div className="flex flex-wrap items-end gap-2">
+                            <span className="font-bold text-gray-800 text-base">{vendor.name || t('noName')}</span>
+                            {vendor.honorific && <span className="text-sm text-gray-500">{vendor.honorific}</span>}
+                            {vendor.furigana && <span className="text-xs text-gray-400 ml-1">({vendor.furigana})</span>}
+                          </div>
+                          {vendor.department && <div className="text-sm text-gray-500 mt-1">{vendor.department}</div>}
+                        </div>
+                        
+                        <div className="space-y-2.5 text-sm text-gray-600">
+                          {vendor.phone && (
+                            <div className="flex items-center gap-2.5">
+                              <Phone size={15} className="text-gray-400 shrink-0" />
+                              <a href={`tel:${vendor.phone}`} className="truncate hover:text-black hover:underline transition-colors relative z-10">{vendor.phone}</a>
+                            </div>
+                          )}
+                          {vendor.mobile && (
+                            <div className="flex items-center gap-2.5">
+                              <Smartphone size={15} className="text-gray-400 shrink-0" />
+                              <a href={`tel:${vendor.mobile}`} className="truncate font-medium text-gray-700 hover:text-black hover:underline transition-colors relative z-10">{vendor.mobile}</a>
+                            </div>
+                          )}
+                          {vendor.email && (
+                            <div className="flex items-center gap-2.5">
+                              <Mail size={15} className="text-gray-400 shrink-0" />
+                              <a href={`mailto:${vendor.email}?body=${encodeURIComponent(`${vendor.company ? vendor.company + '\n' : ''}${vendor.department ? vendor.department + '\n' : ''}${vendor.name || ''} ${vendor.honorific || ''}\n\n`)}`} className="truncate hover:text-black hover:underline transition-colors relative z-10">{vendor.email}</a>
+                            </div>
+                          )}
+                          {(vendor.address1 || vendor.address2) && (
+                            <div className="flex items-start gap-2.5">
+                              <MapPin size={15} className="text-gray-400 shrink-0 mt-0.5" />
+                              <span className="line-clamp-2">
+                                {vendor.postalCode && `${vendor.postalCode} `}
+                                {vendor.address1} {vendor.address2}
+                              </span>
+                            </div>
+                          )}
+                        </div>
+
+                        {vendor.projects && vendor.projects.length > 0 && (
+                          <div className="mt-4 pt-3 border-t border-gray-100 flex flex-wrap gap-1.5">
+                            {vendor.projects.map(p => (
+                              <button key={p} onClick={(e) => { e.stopPropagation(); setSelectedProject(p); window.scrollTo({ top: 0, behavior: 'smooth' }); }} className="px-2 py-0.5 bg-blue-50 text-blue-700 border border-blue-100 rounded text-[10px] font-bold flex items-center gap-1 hover:bg-blue-100 transition-colors z-10 relative">
+                                <Folder size={10} /> {p}
+                              </button>
+                            ))}
+                          </div>
+                        )}
+
+                        {vendor.catalogs && vendor.catalogs.length > 0 && (
+                          <div className="mt-4 pt-4 border-t border-gray-100 space-y-2">
+                            <div className="text-xs font-bold text-gray-500 mb-2 flex items-center gap-1.5">
+                              <Briefcase size={14} /> {t('catalogs')}
+                            </div>
+                            {vendor.catalogs.map(cat => (
+                              <div key={cat.id} className="flex items-center justify-between bg-[#fafafa] hover:bg-gray-100 p-2 rounded-md border border-gray-100 transition-colors">
+                                <a href={cat.url} target="_blank" rel="noreferrer" className="flex items-center gap-1.5 text-gray-700 hover:text-black font-medium transition-colors text-sm truncate flex-grow pr-2 relative z-10" title={cat.url}>
+                                  <LinkIcon size={14} className="shrink-0 text-gray-400" />
+                                  <span className="truncate">{cat.name || t('untitledCatalog')}</span>
+                                 </a>
+                                {cat.url && (
+                                  <div className="relative group shrink-0 z-10">
+                                    <button className="p-1 text-gray-400 hover:text-gray-800 rounded flex items-center justify-center active:bg-gray-200">
+                                      <QrCode size={16} />
+                                    </button>
+                                    <div className="absolute bottom-full right-0 mb-2 hidden group-hover:block active:block z-20">
+                                      <div className="bg-white p-3 rounded-xl shadow-lg border border-gray-200 flex flex-col items-center gap-2">
+                                        <img 
+                                          src={`https://api.qrserver.com/v1/create-qr-code/?size=120x120&data=${encodeURIComponent(cat.url)}`} 
+                                          alt="QR Code" 
+                                          className="w-28 h-28 object-contain shrink-0" 
+                                        />
+                                        <span className="text-[10px] text-gray-400 whitespace-nowrap font-medium">{t('scanToView')}</span>
+                                      </div>
+                                    </div>
+                                  </div>
+                                )}
+                              </div>
+                            ))}
+                          </div>
+                        )}
+                      </div>
+                      
+                      <div className="px-4 py-3 bg-[#fafafa] border-t border-gray-100 flex flex-col sm:flex-row justify-between sm:items-center gap-2 opacity-100 md:opacity-0 md:group-hover:opacity-100 transition-opacity rounded-b-xl relative z-10">
+                        <div className="flex flex-col">
+                          {vendor.notes && (
+                            <div className="text-xs text-gray-500 truncate max-w-[200px]" title={vendor.notes}>
+                              {t('notesLabel')} {vendor.notes}
+                            </div>
+                          )}
+                          {vendor.lastUpdated && (
+                            <div className="text-[10px] text-gray-400 flex items-center gap-1 mt-0.5">
+                              <Clock size={10} /> {t('lastUpdated')} {formatDate(vendor.lastUpdated)}
+                            </div>
+                          )}
+                        </div>
+                        <div className="flex gap-1.5 shrink-0 self-end sm:self-auto">
+                          {isAdmin && vendor.history && vendor.history.length > 0 && (
+                            <button onClick={() => openHistory(vendor)} className="p-2 sm:p-1.5 text-gray-400 hover:text-blue-600 hover:bg-blue-50 rounded-md transition-colors" title={t('history')}>
+                              <History size={16} />
+                            </button>
+                          )}
+                          <button onClick={() => handleEdit(vendor)} className="p-2 sm:p-1.5 text-gray-500 hover:text-gray-900 hover:bg-gray-200 rounded-md transition-colors active:bg-gray-300" title={t('edit')}>
+                            <Edit2 size={16} />
+                          </button>
+                          {isAdmin && (
+                            <button onClick={() => handleDelete(vendor.id)} className="p-2 sm:p-1.5 text-gray-400 hover:text-red-600 hover:bg-red-50 rounded-md transition-colors active:bg-red-100" title={t('delete')}>
+                              <Trash2 size={16} />
+                            </button>
+                          )}
+                        </div>
+                      </div>
+                    </div>
+                  )})}
+                </div>
+
+                {/* 分頁控制項 (Pagination UI) */}
+                {totalPages > 1 && (
+                  <div className="flex justify-center items-center gap-4 mt-2 mb-4">
+                    <button
+                      onClick={() => setCurrentPage(p => Math.max(1, p - 1))}
+                      disabled={currentPage === 1}
+                      className="p-2 rounded-lg border border-gray-200 bg-white text-gray-700 disabled:opacity-30 disabled:cursor-not-allowed hover:bg-gray-50 transition-colors shadow-sm"
+                      title="上一頁"
+                    >
+                      <ChevronLeft size={20} />
+                    </button>
+                    <span className="text-sm font-bold text-gray-500 bg-gray-100 px-4 py-1.5 rounded-full border border-gray-200">
+                      {currentPage} / {totalPages}
+                    </span>
+                    <button
+                      onClick={() => setCurrentPage(p => Math.min(totalPages, p + 1))}
+                      disabled={currentPage === totalPages}
+                      className="p-2 rounded-lg border border-gray-200 bg-white text-gray-700 disabled:opacity-30 disabled:cursor-not-allowed hover:bg-gray-50 transition-colors shadow-sm"
+                      title="下一頁"
+                    >
+                      <ChevronRight size={20} />
+                    </button>
+                  </div>
+                )}
+              </div>
+            )}
+          </main>
+
+          <footer className="w-full py-8 text-center text-sm font-medium text-gray-400 flex-none">
+            Developed by Leo Wu
+          </footer>
+
+          {/* 歷史紀錄檢視視窗 (History Modal) */}
+          {historyVendor && (
+            <div className="fixed inset-0 bg-gray-900/60 z-[60] flex items-center justify-center p-4 backdrop-blur-sm">
+              <div className="bg-white rounded-2xl shadow-xl w-full max-w-4xl h-[85vh] flex flex-col overflow-hidden animate-in fade-in zoom-in-95 duration-200">
+                <div className="px-5 py-4 border-b border-gray-200 flex justify-between items-center bg-gray-50">
+                  <h2 className="text-lg font-bold text-gray-900 flex items-center gap-2">
+                    <History size={20} className="text-gray-500" />
+                    {t('historyTitle')} <span className="text-sm font-normal text-gray-500">({historyVendor.company})</span>
+                  </h2>
+                  <button onClick={() => setHistoryVendor(null)} className="p-2 text-gray-400 hover:text-gray-600 hover:bg-gray-200 rounded-full transition-colors">
+                    <X size={20} />
+                  </button>
+                </div>
+                
+                <div className="flex-1 flex flex-col sm:flex-row overflow-hidden">
+                  <div className="w-full sm:w-1/3 border-b sm:border-b-0 sm:border-r border-gray-200 bg-[#fafafa] overflow-y-auto p-4 flex flex-col gap-2">
+                    <h3 className="text-xs font-bold text-gray-500 uppercase tracking-wider mb-2 px-1">{t('versionList')}</h3>
+                    
+                    <div 
+                      className={`p-3 rounded-lg cursor-pointer border transition-colors ${selectedHistoryIndex === 0 ? 'bg-white border-gray-400 shadow-sm' : 'border-transparent hover:bg-gray-100'}`}
+                      onClick={() => setSelectedHistoryIndex(0)}
+                    >
+                      <div className="text-sm font-bold text-gray-800 flex items-center justify-between">
+                        {t('currentData')}
+                        <span className="text-[10px] px-1.5 py-0.5 rounded shadow-sm border border-gray-200 bg-gray-100 text-gray-700">Current</span>
+                      </div>
+                      <div className="text-xs text-gray-500 mt-1">{formatDate(historyVendor.lastUpdated)}</div>
+                    </div>
+
+                    {historyVendor.history.map((hist, index) => (
+                      <div 
+                        key={index} 
+                        className={`p-3 rounded-lg cursor-pointer border transition-colors ${selectedHistoryIndex === index + 1 ? 'bg-white border-gray-400 shadow-sm' : 'border-transparent hover:bg-gray-100'}`}
+                        onClick={() => setSelectedHistoryIndex(index + 1)}
+                      >
+                        <div className="text-sm font-medium text-gray-700">{t('version')} {historyVendor.history.length - index}</div>
+                        <div className="text-xs text-gray-500 mt-1">{formatDate(hist.updatedAt)}</div>
+                      </div>
+                    ))}
+                  </div>
+
+                  <div className="w-full sm:w-2/3 overflow-y-auto p-6 bg-white">
+                    <div className="mb-6 flex items-center gap-2">
+                      <span 
+                        className="px-2 py-1 rounded text-xs font-bold shadow-sm bg-gray-100 text-gray-700 border border-gray-200"
+                      >
+                        {selectedHistoryIndex === 0 ? t('currentVersion') : `${t('historicalVersion')} (${t('version')} ${historyVendor.history.length - selectedHistoryIndex + 1})`}
+                      </span>
+                      <span className="text-sm text-gray-500">
+                        {formatDate(selectedHistoryIndex === 0 ? historyVendor.lastUpdated : historyVendor.history[selectedHistoryIndex - 1].updatedAt)}
+                      </span>
+                    </div>
+                    
+                    <div className="bg-[#fafafa] border border-gray-200 rounded-xl p-5">
+                       {renderHistoryDetails(selectedHistoryIndex === 0 ? historyVendor : historyVendor.history[selectedHistoryIndex - 1].data)}
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+          )}
+
+          {/* 新增/編輯 視窗 */}
+          {isModalOpen && (
+            <div className="fixed inset-0 bg-gray-900/60 z-50 flex items-end sm:items-center justify-center sm:p-4 backdrop-blur-sm pb-[env(safe-area-inset-bottom)]">
+              <div className="bg-white rounded-t-2xl sm:rounded-2xl shadow-xl w-full max-w-5xl h-[92vh] sm:h-auto sm:max-h-[90vh] flex flex-col relative animate-in slide-in-from-bottom-4 sm:slide-in-from-bottom-0 sm:fade-in duration-200">
+                
+                <div className="px-4 sm:px-5 py-4 border-b border-gray-100 flex justify-between items-center bg-white shrink-0 rounded-t-2xl">
+                  <h2 className="text-lg font-bold text-gray-900 flex items-center gap-2">
+                    {editingId ? t('editVendor') : t('addVendor')}
+                    {isProcessing && <span className="flex items-center gap-1.5 text-xs font-medium text-gray-600 bg-gray-100 px-2.5 py-1 rounded-full border border-gray-200"><Loader2 size={12} className="animate-spin" /> {t('aiParsing')}</span>}
+                  </h2>
+                  <button onClick={closeModal} className="p-2 text-gray-400 hover:text-gray-600 hover:bg-gray-100 active:bg-gray-200 rounded-full transition-colors">
+                    <X size={20} />
+                  </button>
+                </div>
+
+                <div className="flex-1 overflow-y-auto p-4 sm:p-5 overscroll-contain">
+                  <div className="flex flex-col lg:flex-row gap-6 sm:gap-8 h-full">
+                    
+                    {showImagePanel && (
+                      <div className="w-full lg:w-2/5 flex flex-col gap-3 sm:gap-4 shrink-0">
+                        <label className="text-sm font-semibold text-gray-700">{t('scannedImage')}</label>
+                        <div className="flex flex-col gap-3 h-full">
+                          <div className="flex-1 min-h-[160px] sm:min-h-[180px] relative">
+                            <div className="absolute inset-0 rounded-xl overflow-hidden bg-gray-50 border border-gray-200 flex items-center justify-center group cursor-pointer hover:border-gray-400 active:bg-gray-200 transition-colors" onClick={() => { if (modalFrontRef.current) modalFrontRef.current.click(); }}>
+                              {frontImage ? <img src={frontImage} alt="Front" className="w-full h-full object-contain" /> : <div className="text-gray-400 flex flex-col items-center"><Camera size={24}/> <span className="text-sm mt-2 font-medium">{t('tapForFront')}</span></div>}
+                              {isProcessing && <div className="absolute inset-0 bg-white/70 backdrop-blur-sm flex items-center justify-center text-gray-800"><Loader2 size={32} className="animate-spin" /></div>}
+                            </div>
+                          </div>
+                          <div className="flex-1 min-h-[160px] sm:min-h-[180px] relative">
+                            <div className="absolute inset-0 rounded-xl overflow-hidden bg-gray-50 border border-gray-200 flex items-center justify-center group cursor-pointer hover:border-gray-400 active:bg-gray-200 transition-colors border-dashed" onClick={() => { if (modalBackRef.current) modalBackRef.current.click(); }}>
+                              {backImage ? <img src={backImage} alt="Back" className="w-full h-full object-contain" /> : <div className="text-gray-400 flex flex-col items-center"><Plus size={24}/> <span className="text-sm mt-2 font-medium">{t('addBack')}</span></div>}
+                              {isProcessing && backImage && <div className="absolute inset-0 bg-white/70 backdrop-blur-sm flex items-center justify-center text-gray-800"><Loader2 size={32} className="animate-spin" /></div>}
+                            </div>
+                          </div>
+                        </div>
+                      </div>
+                    )}
+
+                    <div className={`w-full ${showImagePanel ? 'lg:w-3/5' : 'max-w-3xl mx-auto'}`}>
+                      <div className="mb-6">
+                        <div className="flex items-center justify-between mb-3 border-b border-gray-200 pb-1">
+                          <h3 className="text-sm font-bold text-gray-800 flex items-center gap-2"><Building2 size={16}/> {t('basicInfo')}</h3>
+                          <button 
+                            onClick={handleAIAutoComplete} 
+                            disabled={isProcessing || !formData.company}
+                            className={`flex items-center gap-1.5 text-xs font-bold px-3 py-1.5 rounded-md transition-colors border ${!formData.company ? 'bg-gray-50 text-gray-400 border-gray-200 cursor-not-allowed' : 'bg-[#E0FF00] text-black border-[rgba(0,0,0,0.1)] hover:opacity-80 shadow-sm'}`}
+                          >
+                            {isProcessing ? <Loader2 size={14} className="animate-spin" /> : <Sparkles size={14} />} 
+                            {t('aiAutoComplete')}
+                          </button>
+                        </div>
+                        <div className="flex flex-col sm:flex-row gap-4 sm:gap-5">
+                          <div className="shrink-0 flex flex-col items-center gap-2 sm:pt-2">
+                            <label className="text-xs font-semibold text-gray-600">{t('companyLogo')}</label>
+                            <div className="w-20 h-20 rounded-xl bg-gray-50 border-2 border-dashed border-gray-300 flex items-center justify-center overflow-hidden cursor-pointer hover:border-gray-500 active:bg-gray-100 transition-colors relative group" onClick={() => { if (logoInputRef.current) logoInputRef.current.click(); }}>
+                              {formData.logo ? (
+                                <React.Fragment>
+                                  <img src={formData.logo} alt="Logo" className="w-full h-full object-cover bg-white" />
+                                  <div className="absolute inset-0 bg-gray-900/40 hidden group-hover:flex items-center justify-center text-white"><Edit2 size={16} /></div>
+                                </React.Fragment>
+                              ) : (<div className="text-gray-400 flex flex-col items-center"><ImagePlus size={24} className="mb-1" /></div>)}
+                            </div>
+                            <input type="file" accept="image/*" className="hidden" ref={logoInputRef} onChange={handleLogoChange} />
+                            {formData.logo && <button onClick={() => setFormData(prev => ({...prev, logo: ''}))} className="text-xs text-red-500 hover:text-red-700 active:text-red-800 transition-colors py-1 px-2">{t('removeImage')}</button>}
+                          </div>
+                          <div className="flex-grow grid grid-cols-1 sm:grid-cols-2 gap-3 sm:gap-4">
+                            <div className="space-y-1"><label className="text-xs font-semibold text-gray-600">{t('catYear')}</label><input type="text" inputMode="numeric" name="dataYear" value={formData.dataYear} onChange={handleInputChange} className="w-full px-3 py-2 sm:py-2 text-base sm:text-sm border border-gray-300 rounded-lg focus:ring-2 focus:ring-gray-200 focus:border-gray-400 outline-none bg-white" placeholder={t('egYear')} /></div>
+                            <div className="space-y-1"><label className="text-xs font-semibold text-gray-600">{t('catCategory')}</label><input type="text" name="category" value={formData.category} onChange={handleInputChange} className="w-full px-3 py-2 sm:py-2 text-base sm:text-sm border border-gray-300 rounded-lg focus:ring-2 focus:ring-gray-200 focus:border-gray-400 outline-none bg-white" placeholder={t('egCategory')} /></div>
+                            <div className="space-y-1 sm:col-span-2"><label className="text-xs font-semibold text-gray-600">{t('catCompany')} <span className="text-red-500">*</span></label><input type="text" name="company" value={formData.company} onChange={handleInputChange} className="w-full px-3 py-2 sm:py-2 text-base sm:text-sm border border-gray-300 rounded-lg focus:ring-2 focus:ring-gray-200 focus:border-gray-400 outline-none bg-white" placeholder={t('egCompany')} /></div>
+                            <div className="space-y-1 sm:col-span-2"><label className="text-xs font-semibold text-gray-600">{t('catHp')}</label><input type="url" name="hp" value={formData.hp} onChange={handleInputChange} className="w-full px-3 py-2 sm:py-2 text-base sm:text-sm border border-gray-300 rounded-lg focus:ring-2 focus:ring-gray-200 focus:border-gray-400 outline-none bg-white" /></div>
+                          </div>
+                        </div>
+                      </div>
+
+                      <div className="mb-6">
+                        <h3 className="text-sm font-bold text-gray-800 mb-3 border-b border-gray-200 pb-1 flex items-center gap-2"><User size={16}/> {t('contactPerson')}</h3>
+                        <div className="grid grid-cols-1 sm:grid-cols-6 gap-3 sm:gap-4">
+                          <div className="space-y-1 sm:col-span-6"><label className="text-xs font-semibold text-gray-600">{t('catDept')}</label><input type="text" name="department" value={formData.department} onChange={handleInputChange} className="w-full px-3 py-2 sm:py-2 text-base sm:text-sm border border-gray-300 rounded-lg focus:ring-2 focus:ring-gray-200 focus:border-gray-400 outline-none bg-white" /></div>
+                          <div className="space-y-1 sm:col-span-2"><label className="text-xs font-semibold text-gray-600">{t('catName')} <span className="text-red-500">*</span></label><input type="text" name="name" value={formData.name} onChange={handleInputChange} className="w-full px-3 py-2 sm:py-2 text-base sm:text-sm border border-gray-300 rounded-lg focus:ring-2 focus:ring-gray-200 focus:border-gray-400 outline-none bg-white" /></div>
+                          <div className="space-y-1 sm:col-span-2"><label className="text-xs font-semibold text-gray-600">{t('catFurigana')}</label><input type="text" name="furigana" value={formData.furigana} onChange={handleInputChange} className="w-full px-3 py-2 sm:py-2 text-base sm:text-sm border border-gray-300 rounded-lg focus:ring-2 focus:ring-gray-200 focus:border-gray-400 outline-none bg-white" /></div>
+                          <div className="space-y-1 sm:col-span-2"><label className="text-xs font-semibold text-gray-600">{t('catHonorific')}</label><input type="text" name="honorific" value={formData.honorific} onChange={handleInputChange} className="w-full px-3 py-2 sm:py-2 text-base sm:text-sm border border-gray-300 rounded-lg focus:ring-2 focus:ring-gray-200 focus:border-gray-400 outline-none bg-white" /></div>
+                        </div>
+                      </div>
+
+                      <div className="mb-6">
+                        <h3 className="text-sm font-bold text-gray-800 mb-3 border-b border-gray-200 pb-1 flex items-center gap-2"><Phone size={16}/> {t('contactMethod')}</h3>
+                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 sm:gap-4">
+                          <div className="space-y-1"><label className="text-xs font-semibold text-gray-600">{t('catPhone')}</label><input type="tel" name="phone" value={formData.phone} onChange={handleInputChange} className="w-full px-3 py-2 sm:py-2 text-base sm:text-sm border border-gray-300 rounded-lg focus:ring-2 focus:ring-gray-200 focus:border-gray-400 outline-none bg-white" /></div>
+                          <div className="space-y-1"><label className="text-xs font-semibold text-gray-600">{t('catMobile')}</label><input type="tel" name="mobile" value={formData.mobile} onChange={handleInputChange} className="w-full px-3 py-2 sm:py-2 text-base sm:text-sm border border-gray-300 rounded-lg focus:ring-2 focus:ring-gray-200 focus:border-gray-400 outline-none bg-white" /></div>
+                          <div className="space-y-1 sm:col-span-2"><label className="text-xs font-semibold text-gray-600">{t('catEmail')}</label><input type="email" name="email" value={formData.email} onChange={handleInputChange} className="w-full px-3 py-2 sm:py-2 text-base sm:text-sm border border-gray-300 rounded-lg focus:ring-2 focus:ring-gray-200 focus:border-gray-400 outline-none bg-white" /></div>
+                        </div>
+                      </div>
+
+                      <div className="mb-6">
+                        <h3 className="text-sm font-bold text-gray-800 mb-3 border-b border-gray-200 pb-1 flex items-center gap-2"><MapPin size={16}/> {t('addressAndNotes')}</h3>
+                        <div className="grid grid-cols-1 sm:grid-cols-6 gap-3 sm:gap-4">
+                          <div className="space-y-1 sm:col-span-2"><label className="text-xs font-semibold text-gray-600">{t('catPostal')}</label><input type="text" inputMode="numeric" name="postalCode" value={formData.postalCode} onChange={handleInputChange} className="w-full px-3 py-2 sm:py-2 text-base sm:text-sm border border-gray-300 rounded-lg focus:ring-2 focus:ring-gray-200 focus:border-gray-400 outline-none bg-white" /></div>
+                          <div className="space-y-1 sm:col-span-4"><label className="text-xs font-semibold text-gray-600">{t('catAddress1')}</label><input type="text" name="address1" value={formData.address1} onChange={handleInputChange} className="w-full px-3 py-2 sm:py-2 text-base sm:text-sm border border-gray-300 rounded-lg focus:ring-2 focus:ring-gray-200 focus:border-gray-400 outline-none bg-white" /></div>
+                          <div className="space-y-1 sm:col-span-6"><label className="text-xs font-semibold text-gray-600">{t('catAddress2')}</label><input type="text" name="address2" value={formData.address2} onChange={handleInputChange} className="w-full px-3 py-2 sm:py-2 text-base sm:text-sm border border-gray-300 rounded-lg focus:ring-2 focus:ring-gray-200 focus:border-gray-400 outline-none bg-white" /></div>
+                          <div className="space-y-1 sm:col-span-6"><label className="text-xs font-semibold text-gray-600">{t('catNotes')}</label><textarea name="notes" value={formData.notes} onChange={handleInputChange} rows={2} className="w-full px-3 py-2 sm:py-2 text-base sm:text-sm border border-gray-300 rounded-lg focus:ring-2 focus:ring-gray-200 focus:border-gray-400 outline-none resize-none bg-white" /></div>
+                        </div>
+                      </div>
+
+                      <div className="mb-6">
+                        <h3 className="text-sm font-bold text-gray-800 mb-3 border-b border-gray-200 pb-1 flex items-center gap-2"><Folder size={16}/> {t('projectFolders')}</h3>
+                        <div className="flex flex-col gap-3">
+                          {formData.projects && formData.projects.length > 0 && (
+                            <div className="flex flex-wrap gap-2">
+                              {formData.projects.map(p => (
+                                <span key={p} className="bg-blue-50 text-blue-700 px-2.5 py-1.5 rounded-md text-xs font-bold flex items-center gap-1.5 border border-blue-200 shadow-sm">
+                                  <Folder size={12} className="text-blue-500" /> {p}
+                                  <button onClick={() => handleRemoveProject(p)} className="hover:text-red-500 ml-0.5 p-0.5 rounded-full hover:bg-red-50 transition-colors"><X size={12} /></button>
+                                </span>
+                              ))}
+                            </div>
+                          )}
+                          <div className="flex gap-2">
+                            <input 
+                              type="text" 
+                              value={projectInput}
+                              onChange={(e) => setProjectInput(e.target.value)}
+                              placeholder={t('projectPlaceholder')} 
+                              className="flex-grow px-3 py-2 sm:py-2 text-base sm:text-sm border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-200 focus:border-blue-400 outline-none bg-white" 
+                              onKeyDown={(e) => { if(e.key === 'Enter') { handleAddProject(); e.preventDefault(); } }}
+                            />
+                            <button 
+                              onClick={handleAddProject} 
+                              className="shrink-0 flex items-center gap-1.5 text-sm font-medium px-4 py-2 rounded-lg bg-gray-100 text-gray-700 hover:bg-gray-200 active:bg-gray-300 transition-colors border border-gray-200"
+                            >
+                              <Plus size={16} /> {t('addProject')}
+                            </button>
+                          </div>
+                        </div>
+                      </div>
+
+                      <div className="mb-4">
+                        <div className="flex items-center justify-between mb-3 border-b border-gray-200 pb-1">
+                          <h3 className="text-sm font-bold text-gray-800 flex items-center gap-2"><LinkIcon size={16}/> {t('catalogAndQR')}</h3>
+                          <button onClick={handleAddCatalog} className="flex items-center gap-1 text-xs text-gray-700 hover:text-black active:bg-gray-200 font-medium px-3 py-1.5 rounded-md bg-gray-100 transition-colors border border-gray-200">
+                            <PlusCircle size={14} /> {t('addLink')}
+                          </button>
+                        </div>
+                        
+                        <div className="space-y-3">
+                          {(!formData.catalogs || formData.catalogs.length === 0) ? (
+                            <div className="text-center py-6 text-sm sm:text-xs text-gray-400 bg-[#fafafa] rounded-lg border border-dashed border-gray-300">
+                              {t('noCatalogLinks')}
+                            </div>
+                          ) : (
+                            formData.catalogs.map((catalog, index) => (
+                              <div 
+                                key={catalog.id} 
+                                draggable 
+                                onDragStart={(e) => { setDraggedCatalogIdx(index); e.currentTarget.style.opacity = '0.4'; }}
+                                onDragEnd={(e) => { e.currentTarget.style.opacity = '1'; setDraggedCatalogIdx(null); }}
+                                onDragOver={(e) => e.preventDefault()}
+                                onDrop={(e) => {
+                                  e.preventDefault();
+                                  if (draggedCatalogIdx === null || draggedCatalogIdx === index) return;
+                                  const newCatalogs = [...formData.catalogs];
+                                  const item = newCatalogs[draggedCatalogIdx];
+                                  newCatalogs.splice(draggedCatalogIdx, 1);
+                                  newCatalogs.splice(index, 0, item);
+                                  setFormData(prev => ({ ...prev, catalogs: newCatalogs }));
+                                }}
+                                className="flex flex-col sm:flex-row gap-3 items-start bg-[#fafafa] p-3 sm:p-3 rounded-lg border border-gray-200 relative group cursor-grab active:cursor-grabbing transition-transform"
+                              >
+                                {/* ★ 型錄清單拖曳把手 */}
+                                <div className="hidden sm:flex self-center px-1 text-gray-300 hover:text-gray-500 active:text-gray-700">
+                                  <GripVertical size={16} />
+                                </div>
+                                
+                                <div className="flex-grow w-full sm:w-auto grid grid-cols-1 sm:grid-cols-2 gap-3">
+                                  <div className="space-y-1">
+                                    <label className="text-xs font-semibold text-gray-600">{t('catalogName')}</label>
+                                    <input type="text" value={catalog.name} onChange={(e) => handleCatalogChange(catalog.id, 'name', e.target.value)} className="w-full px-3 py-2 sm:py-1.5 text-base sm:text-sm border border-gray-300 rounded-md focus:ring-2 focus:ring-gray-200 focus:border-gray-400 outline-none bg-white" placeholder={t('egCatalog')} />
+                                  </div>
+                                  <div className="space-y-1">
+                                    <label className="text-xs font-semibold text-gray-600">{t('catalogUrl')}</label>
+                                    <input type="url" value={catalog.url} onChange={(e) => handleCatalogChange(catalog.id, 'url', e.target.value)} className="w-full px-3 py-2 sm:py-1.5 text-base sm:text-sm border border-gray-300 rounded-md focus:ring-2 focus:ring-gray-200 focus:border-gray-400 outline-none bg-white" placeholder="https://..." />
+                                  </div>
+                                </div>
+                                
+                                <div className="flex sm:flex-col items-center justify-between w-full sm:w-auto gap-3 sm:gap-1 pt-1 border-t border-gray-200 sm:border-0 sm:pt-0">
+                                  {catalog.url ? (
+                                    <div className="shrink-0 flex items-center sm:flex-col gap-2 sm:gap-1">
+                                      <span className="text-[10px] text-gray-400 font-medium hidden sm:block">{t('qrPreview')}</span>
+                                      <img src={`https://api.qrserver.com/v1/create-qr-code/?size=60x60&data=${encodeURIComponent(catalog.url)}`} alt="QR" className="w-10 h-10 sm:w-12 sm:h-12 border border-gray-200 rounded bg-white shadow-sm object-contain shrink-0" />
+                                    </div>
+                                  ) : <div className="w-10 sm:w-12"></div>}
+                                  
+                                  <button onClick={() => handleRemoveCatalog(catalog.id)} className="shrink-0 p-2 sm:p-1.5 sm:mt-1 text-gray-400 hover:text-red-500 hover:bg-red-50 active:bg-red-100 rounded transition-colors flex items-center justify-center relative z-10">
+                                    <Trash2 size={18} className="sm:w-4 sm:h-4" />
+                                  </button>
+                                </div>
+                              </div>
+                            ))
+                          )}
+                        </div>
+                      </div>
+
+                    </div>
+                  </div>
+                </div>
+
+                <div className="px-4 sm:px-5 py-3 sm:py-4 border-t border-gray-200 bg-[#fafafa] flex justify-between items-center shrink-0 rounded-b-2xl">
+                  <div className="text-xs text-gray-400 flex items-center gap-1.5">
+                    {editingId && formData.lastUpdated && (
+                      <><Clock size={14} className="hidden sm:block"/> <span className="hidden sm:inline">{t('lastUpdated')} {formatDate(formData.lastUpdated)}</span></>
+                    )}
+                  </div>
+                  
+                  <div className="flex justify-end gap-2 sm:gap-3 w-full sm:w-auto">
+                    <button onClick={closeModal} className="flex-1 sm:flex-none px-5 py-2.5 sm:py-2 text-sm text-gray-700 bg-white border border-gray-300 hover:bg-gray-50 active:bg-gray-100 rounded-lg font-medium transition-colors shadow-sm">
+                      {t('cancel')}
+                    </button>
+                    <button 
+                      onClick={handleSave} disabled={isProcessing}
+                      className={`flex-1 sm:flex-none flex items-center justify-center gap-2 px-6 py-2.5 sm:py-2 text-sm rounded-lg font-medium transition-colors shadow-sm ${
+                        isProcessing ? 'bg-gray-400 cursor-not-allowed text-white' : 'bg-gray-800 hover:bg-gray-900 active:bg-black text-white'
+                      }`}
+                    >
+                      <Save size={16} /> {t('saveData')}
+                    </button>
+                  </div>
+                </div>
+
+              </div>
+            </div>
+          )}
+
+          {/* 管理員登入視窗 */}
+          {showAdminLogin && (
+            <div className="fixed inset-0 bg-gray-900/60 z-[70] flex items-center justify-center p-4 backdrop-blur-sm animate-in fade-in duration-200">
+              <div className="bg-white rounded-xl shadow-xl w-full max-w-sm p-6">
+                <div className="flex justify-between items-center mb-4">
+                  <h3 className="text-lg font-bold text-gray-900 flex items-center gap-2"><ShieldCheck size={20}/> {t('adminLogin')}</h3>
+                  <button onClick={() => {setShowAdminLogin(false); setAdminError(''); setAdminPassword(''); setAdminEmail('');}} className="text-gray-400 hover:text-gray-600"><X size={20}/></button>
+                </div>
+                <p className="text-sm text-gray-500 mb-4">{t('adminLoginDesc')}</p>
+                <input 
+                  type="email" 
+                  value={adminEmail} 
+                  onChange={e => setAdminEmail(e.target.value)} 
+                  className="w-full border border-gray-300 p-2.5 rounded-lg mb-3 focus:ring-2 focus:ring-gray-200 focus:border-gray-400 outline-none" 
+                  placeholder={t('adminEmailPlaceholder')} 
+                  autoFocus 
+                />
+                <input 
+                  type="password" 
+                  value={adminPassword} 
+                  onChange={e => setAdminPassword(e.target.value)} 
+                  onKeyDown={e => e.key === 'Enter' && handleAdminLoginSubmit()}
+                  className="w-full border border-gray-300 p-2.5 rounded-lg mb-2 focus:ring-2 focus:ring-gray-200 focus:border-gray-400 outline-none" 
+                  placeholder={t('passwordPlaceholder')} 
+                />
+                {adminError && <p className="text-red-500 text-sm mb-4">{adminError}</p>}
+                <div className="flex justify-end gap-2 mt-4">
+                  <button onClick={() => {setShowAdminLogin(false); setAdminError(''); setAdminPassword(''); setAdminEmail('');}} className="px-4 py-2 bg-gray-100 text-gray-700 rounded-lg hover:bg-gray-200 font-medium">{t('cancel')}</button>
+                  <button onClick={handleAdminLoginSubmit} className="px-4 py-2 bg-gray-800 text-white rounded-lg hover:bg-gray-900 font-medium">{t('login')}</button>
+                </div>
+              </div>
+            </div>
+          )}
+
+          {/* ★ 操作說明視窗 (Help Modal) */}
+          {showHelp && (
+            <div className="fixed inset-0 bg-gray-900/60 z-[70] flex items-center justify-center p-4 backdrop-blur-sm animate-in fade-in duration-200">
+              <div className="bg-white rounded-xl shadow-xl w-full max-w-lg p-6 max-h-[85vh] overflow-y-auto">
+                <div className="flex justify-between items-center mb-5">
+                  <h3 className="text-lg font-bold text-gray-900 flex items-center gap-2"><HelpCircle size={20} className="text-blue-500" /> {t('helpTitle')}</h3>
+                  <button onClick={() => setShowHelp(false)} className="text-gray-400 hover:text-gray-600 hover:bg-gray-100 p-1.5 rounded-full transition-colors"><X size={20}/></button>
+                </div>
+                
+                <div className="space-y-5 text-sm text-gray-700">
+                  <p className="font-medium text-gray-900">{t('helpDesc')}</p>
+                  
+                  <div className="space-y-3 bg-gray-50 p-4 rounded-xl border border-gray-100">
+                    <p className="leading-relaxed">{t('helpAdd')}</p>
+                    <p className="leading-relaxed">{t('helpSort')}</p>
+                    <p className="leading-relaxed">{t('helpProject')}</p>
+                    <p className="leading-relaxed">{t('helpAdmin')}</p>
+                  </div>
+                  
+                  <p className="font-bold text-gray-900 mt-2">{t('helpShortcuts')}</p>
+                  
+                  <div className="space-y-2 bg-blue-50/50 p-4 rounded-xl border border-blue-100 text-blue-900">
+                    <p>{t('helpShortcutEsc')}</p>
+                    <p>{t('helpShortcutEnter')}</p>
+                  </div>
+                </div>
+                
+                <div className="mt-6 flex justify-end">
+                  <button onClick={() => setShowHelp(false)} className="px-6 py-2.5 bg-gray-800 text-white rounded-lg hover:bg-gray-900 font-medium transition-colors">{t('close')}</button>
+                </div>
+              </div>
+            </div>
+          )}
+
+          {/* 刪除確認視窗 */}
+          {deleteId && (
+            <div className="fixed inset-0 bg-gray-900/60 z-[70] flex items-center justify-center p-4 backdrop-blur-sm animate-in fade-in duration-200">
+              <div className="bg-white rounded-xl shadow-xl w-full max-w-sm p-6 text-center">
+                <div className="w-12 h-12 bg-red-50 text-red-500 rounded-full flex items-center justify-center mx-auto mb-4">
+                  <Trash2 size={24} />
+                </div>
+                <h3 className="text-lg font-bold text-gray-900 mb-2">{t('deleteConfirmTitle')}</h3>
+                <p className="text-gray-500 text-sm mb-6">{t('deleteConfirmDesc')}</p>
+                <div className="flex gap-3">
+                  <button onClick={() => setDeleteId(null)} className="flex-1 py-2.5 bg-gray-100 text-gray-700 rounded-lg hover:bg-gray-200 font-medium">{t('cancel')}</button>
+                  <button onClick={confirmDelete} className="flex-1 py-2.5 bg-red-600 text-white rounded-lg hover:bg-red-700 font-medium">{t('confirmDelete')}</button>
+                </div>
+              </div>
+            </div>
+          )}
+
+          {/* 吐司提示 (Toast) */}
+          {toast && (
+            <div className="fixed bottom-6 left-1/2 -translate-x-1/2 z-[80] bg-gray-800 text-white px-4 py-2 rounded-lg shadow-lg flex items-center gap-2 animate-in slide-in-from-bottom-4 fade-in duration-300">
+              <CheckCircle2 size={16} className="text-green-400" />
+              <span className="text-sm font-medium">{toast}</span>
+            </div>
+          )}
+        </div>
+      );
+    }
+
+    const root = createRoot(document.getElementById('root'));
+    root.render(<App />);
+  </script>
+</body>
+</html>
