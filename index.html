@@ -63,11 +63,16 @@
     import { getAuth, signInWithCustomToken, signInAnonymously, onAuthStateChanged, signInWithEmailAndPassword, signOut } from 'firebase/auth';
     import { getFirestore, collection, doc, setDoc, deleteDoc, onSnapshot, writeBatch } from 'firebase/firestore';
 
-    const apiKey = "AIzaSyAegrsQB3HXbY8ousmnFAXqAmFADtlmE5E"; // 執行環境會自動提供 API Key。若要在外部部署，可填入金鑰。
+    const firebaseApiKey = "AIzaSyAegrsQB3HXbY8ousmnFAXqAmFADtlmE5E"; // Firebase 專用金鑰
+    
+    // ★ 自動環境偵測：解決預覽畫面 404 與 GitHub 部署 403 的衝突
+    const isCanvasPreview = typeof __app_id !== 'undefined';
+    const geminiApiKey = isCanvasPreview ? "" : "AIzaSyB4_odnld9eL6OVb0OYYe4nDdXpiDVEobE"; 
+    const aiModelName = isCanvasPreview ? "gemini-2.5-flash-preview-09-2025" : "gemini-1.5-flash";
 
     // Firebase の初期化
     const firebaseConfig = {
-      apiKey: "AIzaSyAegrsQB3HXbY8ousmnFAXqAmFADtlmE5E",
+      apiKey: firebaseApiKey,
       authDomain: "makerlist-9fdc2.firebaseapp.com",
       projectId: "makerlist-9fdc2",
       storageBucket: "makerlist-9fdc2.firebasestorage.app",
@@ -80,7 +85,7 @@
     const db = getFirestore(app);
     const appId = typeof __app_id !== 'undefined' ? __app_id : 'default-app-id';
 
-    const googleMapsApiKey = "AIzaSyClYcKHQwITPsE71XuhOxuCQXW5uxuOkDI"; // 填入您的 Google Maps API Key 以啟用地圖模式
+    const googleMapsApiKey = ""; // 填入您的 Google Maps API Key 以啟用地圖模式
 
     // ★ 在此設定被允許的管理員 Email 列表 (RBAC Role-Based Access Control)
     const ADMIN_EMAILS = ['wu-chiehchun@plantec.co.jp', 'admin@example.com', 'leo@example.com'];
@@ -631,8 +636,7 @@
         if (!fImg && !bImg) return;
         setIsProcessing(true);
         try {
-          const modelName = apiKey ? "gemini-2.5-flash" : "gemini-2.5-flash-preview-09-2025";
-          const url = `https://generativelanguage.googleapis.com/v1beta/models/${modelName}:generateContent?key=${apiKey}`;
+          const url = `https://generativelanguage.googleapis.com/v1beta/models/${aiModelName}:generateContent?key=${geminiApiKey}`;
           const ocrPrompt = "Extract information from this business card image(s) (front and potentially back). Return strictly in the specified JSON format. If a field is not found, return an empty string. Convert Japanese names to Katakana for the 'furigana' field if applicable. Default 'honorific' to '様' for Japanese or blank otherwise. Split addresses into address1 (prefecture/city/street) and address2 (building/floor).";
           
           const parts = [{ text: ocrPrompt }];
@@ -670,14 +674,17 @@
           const extractedText = result.candidates && result.candidates[0] && result.candidates[0].content && result.candidates[0].content.parts && result.candidates[0].content.parts[0] && result.candidates[0].content.parts[0].text;
           
           if (extractedText) {
-            const parsedData = JSON.parse(extractedText);
-            if (!parsedData.honorific && lang === 'ja') parsedData.honorific = '様';
-            if (!parsedData.dataYear) parsedData.dataYear = currentYear; 
-            setFormData(prev => ({ ...prev, ...parsedData }));
+            const jsonMatch = extractedText.match(/\{[\s\S]*\}/);
+            if (jsonMatch) {
+              const parsedData = JSON.parse(jsonMatch[0]);
+              if (!parsedData.honorific && lang === 'ja') parsedData.honorific = '様';
+              if (!parsedData.dataYear) parsedData.dataYear = currentYear; 
+              setFormData(prev => ({ ...prev, ...parsedData }));
+            }
           }
         } catch (error) {
           console.error("OCR 處理失敗:", error);
-          showToast(t('toastOcrFail'));
+          showToast(`${t('toastOcrFail')} [${error.message}]`);
         } finally {
           setIsProcessing(false);
         }
@@ -695,8 +702,7 @@
         }
         setIsProcessing(true);
         try {
-          const modelName = apiKey ? "gemini-2.5-flash" : "gemini-2.5-flash-preview-09-2025";
-          const url = `https://generativelanguage.googleapis.com/v1beta/models/${modelName}:generateContent?key=${apiKey}`;
+          const url = `https://generativelanguage.googleapis.com/v1beta/models/${aiModelName}:generateContent?key=${geminiApiKey}`;
           const prompt = `Search the public internet to find business contact information for the company "${formData.company}" in Japan (or matching the provided website "${formData.hp}"). Return strictly in the specified JSON format. If a field cannot be verified, return an empty string. Split the address into postalCode, address1 (prefecture/city/ward/street), and address2 (building/floor).`;
 
           const payload = {
@@ -722,23 +728,28 @@
           const extractedText = result.candidates && result.candidates[0] && result.candidates[0].content && result.candidates[0].content.parts && result.candidates[0].content.parts[0] && result.candidates[0].content.parts[0].text;
           
           if (extractedText) {
-            const parsedData = JSON.parse(extractedText);
-            setFormData(prev => ({
-              ...prev,
-              category: prev.category || parsedData.category || '',
-              phone: prev.phone || parsedData.phone || '',
-              postalCode: prev.postalCode || parsedData.postalCode || '',
-              address1: prev.address1 || parsedData.address1 || '',
-              address2: prev.address2 || parsedData.address2 || '',
-              hp: prev.hp || parsedData.hp || ''
-            }));
-            showToast(t('toastAiSuccess'));
+            const jsonMatch = extractedText.match(/\{[\s\S]*\}/);
+            if (jsonMatch) {
+              const parsedData = JSON.parse(jsonMatch[0]);
+              setFormData(prev => ({
+                ...prev,
+                category: prev.category || parsedData.category || '',
+                phone: prev.phone || parsedData.phone || '',
+                postalCode: prev.postalCode || parsedData.postalCode || '',
+                address1: prev.address1 || parsedData.address1 || '',
+                address2: prev.address2 || parsedData.address2 || '',
+                hp: prev.hp || parsedData.hp || ''
+              }));
+              showToast(t('toastAiSuccess'));
+            } else {
+              showToast(`${t('toastAiFail')} [JSON 格式錯誤]`);
+            }
           } else {
-            showToast(t('toastAiFail'));
+            showToast(`${t('toastAiFail')} [無內容]`);
           }
         } catch (error) {
           console.error("AI Auto-complete error:", error);
-          showToast(t('toastAiFail'));
+          showToast(`${t('toastAiFail')} [${error.message}]`);
         } finally {
           setIsProcessing(false);
         }
@@ -1202,18 +1213,18 @@
                 {/* ★ 更新版精準幾何 S L 排版 Logo (三橫線 + 圓點 + 霓虹綠小人) */}
                 <div className="flex items-center cursor-help shrink-0" title="Smartlist">
                   <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 970 750" className="h-10 w-auto sm:h-12 drop-shadow-sm">
-                    <g fill="none" stroke="#111827" strokeWidth="100" strokeLinecap="butt" strokeLinejoin="miter">
+                    <g fill="none" stroke="#111827" stroke-width="100" stroke-linecap="butt" stroke-linejoin="miter">
                       <path d="M 100 450 L 345 450 A 75 75 0 0 0 345 300 L 225 300 A 75 75 0 0 1 225 150 L 470 150" />
                       <path d="M 600 100 L 600 375 A 75 75 0 0 0 675 450 L 870 450" />
                     </g>
                     <circle cx="820" cy="600" r="50" fill="#111827" />
-                    <g stroke="#111827" strokeWidth="20" strokeLinecap="butt">
+                    <g stroke="#111827" stroke-width="20" stroke-linecap="butt">
                       <line x1="100" y1="560" x2="710" y2="560" />
                       <line x1="100" y1="600" x2="710" y2="600" />
                       <line x1="100" y1="640" x2="710" y2="640" />
                     </g>
                     <circle cx="760" cy="180" r="40" fill="#3dfc7a" />
-                    <path d="M 660 340 C 660 230, 860 230, 860 340" fill="none" stroke="#3dfc7a" strokeWidth="35" strokeLinecap="round" />
+                    <path d="M 660 340 C 660 230, 860 230, 860 340" fill="none" stroke="#3dfc7a" stroke-width="35" stroke-linecap="round" />
                   </svg>
                 </div>
                 
