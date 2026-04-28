@@ -66,7 +66,6 @@
     // ★ 徹底移除環境偵測，為 GitHub 部署強制寫死金鑰與模型
     const firebaseApiKey = "AIzaSyAegrsQB3HXbY8ousmnFAXqAmFADtlmE5E"; // Firebase 專用金鑰
     const geminiApiKey = "AIzaSyB4_odnld9eL6OVb0OYYe4nDdXpiDVEobE"; // Gemini AI 專屬金鑰
-    const aiModelName = "gemini-1.5-flash"; // 強制使用公開穩定的 1.5-flash 模型，避免 404 錯誤
 
     // Firebase の初期化
     const firebaseConfig = {
@@ -236,23 +235,59 @@
       }
     };
 
-    // ★ 強化版 fetchWithRetry：出錯時會攔截並印出真實的錯誤原因
-    const fetchWithRetry = async (url, options, retries = 5) => {
-      const delays = [1000, 2000, 4000, 8000, 16000];
+    // ★ 強化版 fetchWithRetry：遇到 4xx 錯誤不盲目重試，直接拋出以利備援機制接手
+    const fetchWithRetry = async (url, options, retries = 3) => {
+      const delays = [1000, 2000, 3000];
       for (let i = 0; i < retries; i++) {
         try {
           const res = await fetch(url, options);
           if (!res.ok) {
             let errorText = '';
             try { errorText = await res.text(); } catch(e) {}
-            throw new Error(`HTTP ${res.status}: ${errorText}`);
+            const err = new Error(`HTTP ${res.status}: ${errorText}`);
+            err.status = res.status;
+            throw err;
           }
           return await res.json();
         } catch (err) {
+          // 若為 400, 403, 404 錯誤，重試無效，直接拋出
+          if (err.status === 400 || err.status === 403 || err.status === 404) {
+            throw err;
+          }
           if (i === retries - 1) throw err;
           await new Promise(resolve => setTimeout(resolve, delays[i]));
         }
       }
+    };
+
+    // ★ 自動模型備援機制：依序嘗試可用的模型，徹底解決 404 找不到模型別名的問題
+    const generateContentWithFallback = async (payload, apiKey) => {
+      const modelsToTry = [
+        "gemini-1.5-flash-latest",
+        "gemini-1.5-flash",
+        "gemini-1.5-pro-latest",
+        "gemini-2.5-flash-preview-09-2025" 
+      ];
+      
+      let lastError;
+      for (const model of modelsToTry) {
+        try {
+          const url = `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${apiKey}`;
+          const res = await fetchWithRetry(url, { 
+            method: 'POST', 
+            headers: { 'Content-Type': 'application/json' }, 
+            body: JSON.stringify(payload) 
+          });
+          return res;
+        } catch (err) {
+          console.warn(`[備援機制] 模型 ${model} 測試失敗:`, err.message);
+          lastError = err;
+          if (err.status !== 404) {
+            throw err; // 若為 403 權限不足等其他錯誤，直接報錯不嘗試下一個
+          }
+        }
+      }
+      throw lastError; // 所有模型都 404 失敗
     };
 
     const getNeonTagStyle = (text) => {
@@ -639,7 +674,6 @@
         if (!fImg && !bImg) return;
         setIsProcessing(true);
         try {
-          const url = `https://generativelanguage.googleapis.com/v1beta/models/${aiModelName}:generateContent?key=${geminiApiKey}`;
           const ocrPrompt = "Extract information from this business card image(s) (front and potentially back). Return strictly in the specified JSON format. If a field is not found, return an empty string. Convert Japanese names to Katakana for the 'furigana' field if applicable. Default 'honorific' to '様' for Japanese or blank otherwise. Split addresses into address1 (prefecture/city/street) and address2 (building/floor).";
           
           const parts = [{ text: ocrPrompt }];
@@ -673,7 +707,8 @@
             }
           };
 
-          const result = await fetchWithRetry(url, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload) });
+          // ★ 改為呼叫最新的自動備援機制
+          const result = await generateContentWithFallback(payload, geminiApiKey);
           const extractedText = result.candidates && result.candidates[0] && result.candidates[0].content && result.candidates[0].content.parts && result.candidates[0].content.parts[0] && result.candidates[0].content.parts[0].text;
           
           if (extractedText) {
@@ -705,7 +740,6 @@
         }
         setIsProcessing(true);
         try {
-          const url = `https://generativelanguage.googleapis.com/v1beta/models/${aiModelName}:generateContent?key=${geminiApiKey}`;
           const prompt = `Search the public internet to find business contact information for the company "${formData.company}" in Japan (or matching the provided website "${formData.hp}"). Return strictly in the specified JSON format. If a field cannot be verified, return an empty string. Split the address into postalCode, address1 (prefecture/city/ward/street), and address2 (building/floor).`;
 
           const payload = {
@@ -727,7 +761,8 @@
             }
           };
 
-          const result = await fetchWithRetry(url, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload) });
+          // ★ 改為呼叫最新的自動備援機制
+          const result = await generateContentWithFallback(payload, geminiApiKey);
           const extractedText = result.candidates && result.candidates[0] && result.candidates[0].content && result.candidates[0].content.parts && result.candidates[0].content.parts[0] && result.candidates[0].content.parts[0].text;
           
           if (extractedText) {
