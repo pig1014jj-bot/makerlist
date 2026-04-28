@@ -648,8 +648,8 @@
         setFormData(prev => ({ ...prev, projects: (prev.projects || []).filter(item => item !== p) }));
       };
 
-      // ★ 產生並下載 vCard
-      const handleDownloadVCard = (vendor, e) => {
+      // ★ 產生並下載 vCard (支援 iPhone 原生聯絡人寫入)
+      const handleDownloadVCard = async (vendor, e) => {
         e.stopPropagation();
         const parts = [
           'BEGIN:VCARD',
@@ -667,11 +667,31 @@
         ];
         
         const vcard = parts.filter(Boolean).join('\r\n');
+        const fileName = `${vendor.name || vendor.company || 'contact'}.vcf`;
         const blob = new Blob(['\ufeff' + vcard], { type: 'text/vcard;charset=utf-8;' });
+        
+        // 針對 iPhone / 手機端的原生分享與聯絡人寫入處理
+        if (navigator.share) {
+          try {
+            const file = new File([blob], fileName, { type: 'text/vcard' });
+            if (navigator.canShare && navigator.canShare({ files: [file] })) {
+              await navigator.share({
+                files: [file],
+                title: vendor.name || vendor.company || '聯絡人',
+              });
+              return; // 成功呼叫原生介面後結束
+            }
+          } catch (err) {
+            console.log('Share failed or cancelled:', err);
+            // 若使用者取消或瀏覽器不支援，則繼續往下執行傳統下載
+          }
+        }
+
+        // 傳統網頁下載模式 (電腦端 Fallback)
         const url = URL.createObjectURL(blob);
         const link = document.createElement('a');
         link.href = url;
-        link.setAttribute('download', `${vendor.name || vendor.company || 'contact'}.vcf`);
+        link.setAttribute('download', fileName);
         document.body.appendChild(link);
         link.click();
         document.body.removeChild(link);
@@ -1582,12 +1602,10 @@
                             <UserPlus size={14} className="ml-0.5" />
                           </button>
                         )}
-                        {/* 發送 Email 按鈕 (強制使用 Gmail) */}
+                        {/* 發送 Email 按鈕 (改為呼叫手機原生信箱 App) */}
                         {vendor.email && (
                           <a 
-                            href={`https://mail.google.com/mail/?view=cm&fs=1&to=${encodeURIComponent(vendor.email)}&body=${encodeURIComponent(`${vendor.company ? vendor.company + '\n' : ''}${vendor.department ? vendor.department + '\n' : ''}${vendor.name || ''} ${vendor.honorific || ''}\n\n`)}`}
-                            target="_blank"
-                            rel="noopener noreferrer"
+                            href={`mailto:${vendor.email}?body=${encodeURIComponent(`${vendor.company ? vendor.company + '\n' : ''}${vendor.department ? vendor.department + '\n' : ''}${vendor.name || ''} ${vendor.honorific || ''}\n\n`)}`}
                             className="w-8 h-8 bg-blue-500 text-white hover:bg-blue-600 active:bg-blue-700 rounded-full transition-all shadow-md hover:shadow-lg flex items-center justify-center opacity-80 hover:opacity-100 hover:-translate-y-0.5"
                             title={t('sendEmail')}
                             onClick={(e) => e.stopPropagation()}
