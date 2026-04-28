@@ -66,9 +66,6 @@
     // ★ 雙金鑰設定
     const firebaseApiKey = "AIzaSyAegrsQB3HXbY8ousmnFAXqAmFADtlmE5E"; // Firebase 專用金鑰
     
-    // 🥷 終極防護：把您的 Gemini API 金鑰「切成兩半」，躲避 GitHub 的自動外洩掃描機器人！
-    // 假設您的金鑰是 "AIzaSy1234567890abcdefg"
-    // 請把它切成兩段填入下面：
     const keyPart1 = "AIzaSyB-9VDQmDJjC"; 
     const keyPart2 = "42YpeVOmmcRc_ddLWUPlak"; 
     const geminiApiKey = keyPart1 + keyPart2; // 程式執行時會自動組合起來
@@ -88,10 +85,10 @@
     const db = getFirestore(app);
     const appId = typeof __app_id !== 'undefined' ? __app_id : 'default-app-id';
 
-   const googleMapsApiKey = "AIzaSyClYcKHQwITPsE71XuhOxuCQXW5uxuOkDI"; // 填入您的 Google Maps API Key 以啟用地圖模式
-    // ★ 在此設定被允許的管理員 Email 列表 (RBAC Role-Based Access Control)
+    const googleMapsApiKey = "AIzaSyClYcKHQwITPsE71XuhOxuCQXW5uxuOkDI"; // 填入您的 Google Maps API Key 以啟用地圖模式
+    
+    // ★ 在此設定被允許的管理員 Email 列表
     const ADMIN_EMAILS = ['wu-chiehchun@plantec.co.jp', 'admin@example.com', 'leo@example.com'];
-
 
     // ------------------------------
     // 多言語翻譯字典 (i18n Translations)
@@ -132,7 +129,7 @@
         aiAutoComplete: "AI 自動補全", toastAiSuccess: "AI 已成功聯網補齊資料！", toastAiFail: "AI 補全失敗", toastNeedCompany: "請先輸入「公司名稱」才能使用 AI 補全",
         advFilters: "進階篩選", sortBy: "排序方式", sortNewest: "最新更新優先", sortOldest: "最早建立優先", filterCatalog: "型錄狀態", hasCatalog: "僅顯示有型錄者", multiCategory: "分類多選", clearFilters: "清除全部條件",
         projectFolders: "專案資料夾", addProject: "加入", projectPlaceholder: "輸入專案名稱 (按 Enter 加入)", allProjects: "全部廠商", noProject: "未分類",
-        sortManual: "手手動拖曳排序", disableSortOnFilter: "請先清除所有篩選與搜尋，再進行拖曳排序。", toastLocalSortOnly: "排序已變更 (僅本地預覽，登入管理員可永久儲存)", toastSortSaved: "自訂排序已成功儲存至雲端",
+        sortManual: "手動拖曳排序", disableSortOnFilter: "請先清除所有篩選與搜尋，再進行拖曳排序。", toastLocalSortOnly: "排序已變更 (僅本地預覽，登入管理員可永久儲存)", toastSortSaved: "自訂排序已成功儲存至雲端",
         help: "說明", helpTitle: "系統使用說明 & 快捷鍵", helpDesc: "歡迎使用 Smartlist！以下是主要功能與操作指南：",
         helpAdd: "📷 建立資料：點擊「掃描名片」或「上傳照片」，AI 會自動辨識名片內容。輸入公司名稱後，可點擊「AI 自動補全」自動上網尋找地址與電話。",
         helpSort: "🖱️ 拖曳排序：在「進階篩選」中開啟「手動拖曳排序」，可按住卡片左側把手自由排列順序。編輯時也能拖曳排序產品型錄。",
@@ -240,7 +237,6 @@
       }
     };
 
-    // ★ 強化版 fetchWithRetry：遇到 4xx 錯誤不盲目重試，直接拋出以利備援機制接手
     const fetchWithRetry = async (url, options, retries = 2) => {
       const delays = [1000, 2000];
       for (let i = 0; i < retries; i++) {
@@ -255,7 +251,6 @@
           }
           return await res.json();
         } catch (err) {
-          // 429: Quota/Rate Limit, 404: Not Found, 403: Forbidden, 400: Bad Request
           if (err.status === 400 || err.status === 403 || err.status === 404 || err.status === 429) {
             throw err;
           }
@@ -265,14 +260,13 @@
       }
     };
 
-    // ★ 自動模型備援機制
     const generateContentWithFallback = async (payload, apiKey) => {
       const modelsToTry = [
-        "gemini-3-flash-preview",          // 👑 優先嘗試最新 3.0 預覽版
-        "gemini-2.5-flash-preview-09-2025",// 備用 1: 2.5 預覽版
-        "gemini-2.0-flash",                // 備用 2: 2.0 穩定版 (可能會遇到額度 429)
-        "gemini-1.5-flash",                // 備用 3: 1.5 穩定版 (免費額度最高、最不會被限制)
-        "gemini-flash"                     // 終極備用: 通用別名，讓伺服器自動決定
+        "gemini-3-flash-preview",
+        "gemini-2.5-flash-preview-09-2025",
+        "gemini-2.0-flash",
+        "gemini-1.5-flash",
+        "gemini-flash"
       ];
       
       let lastError;
@@ -284,18 +278,16 @@
             headers: { 'Content-Type': 'application/json' }, 
             body: JSON.stringify(payload) 
           });
-          return res; // 只要有一個模型成功，就立刻回傳並終止嘗試
+          return res;
         } catch (err) {
           console.warn(`[備援機制] 模型 ${model} 測試失敗:`, err.message);
           lastError = err;
-          
-          // 如果是 404 (找不到) 或 429 (額度用盡)，自動切換下一個模型繼續挑戰！
           if (err.status !== 404 && err.status !== 429) {
             throw err; 
           }
         }
       }
-      throw lastError; // 所有備用方案都失敗了
+      throw lastError;
     };
 
     const getNeonTagStyle = (text) => {
@@ -358,7 +350,6 @@
       const [user, setUser] = useState(null);
       const [isDbReady, setIsDbReady] = useState(false);
 
-      // ★ 全域快捷鍵監聽
       useEffect(() => {
         const handleKeyDown = (e) => {
           if (e.key === 'Escape') {
@@ -413,37 +404,29 @@
         const standalone = isIOSStandalone || isAndroidStandalone;
         setIsStandalone(standalone);
 
-        // 偵測 iOS
         const isIOS = (/iPad|iPhone|iPod/.test(navigator.userAgent) || (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1)) && !window.MSStream;
-        
         if (isIOS && !standalone) {
           setShowPwaPrompt(true);
         }
 
-        // PWA Icon 改為 S L 幾何排版 + 三橫線 + 右側小人平衡設計
         const iconSvg = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 970 970" width="256" height="256">
           <rect width="970" height="970" fill="#f7f6f3" />
           <g transform="translate(0, 110)">
-            <!-- S 與 L 的主體 -->
             <g fill="none" stroke="#111827" stroke-width="100" stroke-linecap="butt" stroke-linejoin="miter">
               <path d="M 100 450 L 345 450 A 75 75 0 0 0 345 300 L 225 300 A 75 75 0 0 1 225 150 L 470 150" />
               <path d="M 600 100 L 600 375 A 75 75 0 0 0 675 450 L 870 450" />
             </g>
-            <!-- 右下角的圓點 (與L右邊緣完美切齊) -->
             <circle cx="820" cy="600" r="50" fill="#111827" />
-            <!-- 下方的三條橫線 (與S左邊緣完美切齊，並對齊圓點高度) -->
             <g stroke="#111827" stroke-width="20" stroke-linecap="butt">
               <line x1="100" y1="560" x2="710" y2="560" />
               <line x1="100" y1="600" x2="710" y2="600" />
               <line x1="100" y1="640" x2="710" y2="640" />
             </g>
-            <!-- L 右側負空間的小人圖示 (填補畫面平衡，改為亮霓虹綠色) -->
             <circle cx="760" cy="180" r="40" fill="#3dfc7a" />
             <path d="M 660 340 C 660 230, 860 230, 860 340" fill="none" stroke="#3dfc7a" stroke-width="35" stroke-linecap="round" />
           </g>
         </svg>`;
         
-        // 使用 unescape 與 encodeURIComponent 安全轉換非 Latin1 字元，修復 btoa 錯誤
         const utf8ToBase64 = (str) => window.btoa(unescape(encodeURIComponent(str)));
         const iconDataUrl = "data:image/svg+xml;base64," + utf8ToBase64(iconSvg);
 
@@ -648,7 +631,7 @@
         setFormData(prev => ({ ...prev, projects: (prev.projects || []).filter(item => item !== p) }));
       };
 
-      // ★ 產生並下載 vCard (支援 iPhone 原生聯絡人寫入)
+      // ★ 產生並下載 vCard (支援 iOS 裝置原生畫面)
       const handleDownloadVCard = async (vendor, e) => {
         e.stopPropagation();
         const parts = [
@@ -668,34 +651,51 @@
         
         const vcard = parts.filter(Boolean).join('\r\n');
         const fileName = `${vendor.name || vendor.company || 'contact'}.vcf`;
-        const blob = new Blob(['\ufeff' + vcard], { type: 'text/vcard;charset=utf-8;' });
         
-        // 針對 iPhone / 手機端的原生分享與聯絡人寫入處理
-        if (navigator.share) {
-          try {
-            const file = new File([blob], fileName, { type: 'text/vcard' });
-            if (navigator.canShare && navigator.canShare({ files: [file] })) {
-              await navigator.share({
-                files: [file],
-                title: vendor.name || vendor.company || '聯絡人',
-              });
-              return; // 成功呼叫原生介面後結束
-            }
-          } catch (err) {
-            console.log('Share failed or cancelled:', err);
-            // 若使用者取消或瀏覽器不支援，則繼續往下執行傳統下載
-          }
-        }
+        // 判斷是否為 iOS 裝置
+        const isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent) && !window.MSStream;
 
-        // 傳統網頁下載模式 (電腦端 Fallback)
-        const url = URL.createObjectURL(blob);
-        const link = document.createElement('a');
-        link.href = url;
-        link.setAttribute('download', fileName);
-        document.body.appendChild(link);
-        link.click();
-        document.body.removeChild(link);
-        URL.revokeObjectURL(url);
+        if (isIOS) {
+          // iOS 專屬：將 vCard 轉為 Data URL 直接跳轉，Safari 會直接攔截並跳出原生的「加入聯絡人」畫面
+          const dataUrl = `data:text/vcard;charset=utf-8,${encodeURIComponent(vcard)}`;
+          window.location.href = dataUrl;
+        } else {
+          // 電腦 / Android：標準下載方式
+          const blob = new Blob(['\ufeff' + vcard], { type: 'text/vcard;charset=utf-8;' });
+          const url = URL.createObjectURL(blob);
+          const link = document.createElement('a');
+          link.href = url;
+          link.setAttribute('download', fileName);
+          document.body.appendChild(link);
+          link.click();
+          document.body.removeChild(link);
+          URL.revokeObjectURL(url);
+        }
+      };
+
+      // ★ 智慧型 Email 發送處理 (判斷手機或電腦)
+      const handleEmailClick = (vendor, e) => {
+        e.stopPropagation();
+        const encodedBody = encodeURIComponent(`${vendor.company ? vendor.company + '\n' : ''}${vendor.department ? vendor.department + '\n' : ''}${vendor.name || ''} ${vendor.honorific || ''}\n\n`);
+        const email = encodeURIComponent(vendor.email);
+        
+        // 判斷裝置
+        const isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent) && !window.MSStream;
+        const isAndroid = /Android/.test(navigator.userAgent);
+
+        if (isIOS) {
+          // iPhone/iPad: 優先嘗試打開 Gmail App，若失敗則延遲 500 毫秒後呼叫系統預設郵件(Apple Mail)
+          window.location.href = `googlegmail:///co?to=${email}&body=${encodedBody}`;
+          setTimeout(() => {
+            window.location.href = `mailto:${email}?body=${encodedBody}`;
+          }, 500);
+        } else if (isAndroid) {
+          // Android: 系統本身的 mailto 支援 App 選擇器，能完美對應 Gmail
+          window.location.href = `mailto:${email}?body=${encodedBody}`;
+        } else {
+          // 電腦版：強制打開瀏覽器的 Gmail 網頁版
+          window.open(`https://mail.google.com/mail/?view=cm&fs=1&to=${email}&body=${encodedBody}`, '_blank');
+        }
       };
 
       const processBusinessCard = async (fImg, bImg) => {
@@ -735,7 +735,6 @@
             }
           };
 
-          // ★ 呼叫備援機制
           const result = await generateContentWithFallback(payload, geminiApiKey);
           const extractedText = result.candidates && result.candidates[0] && result.candidates[0].content && result.candidates[0].content.parts && result.candidates[0].content.parts[0] && result.candidates[0].content.parts[0].text;
           
@@ -793,7 +792,6 @@
             }
           };
 
-          // ★ 呼叫備援機制
           const result = await generateContentWithFallback(payload, geminiApiKey);
           const extractedText = result.candidates && result.candidates[0] && result.candidates[0].content && result.candidates[0].content.parts && result.candidates[0].content.parts[0] && result.candidates[0].content.parts[0].text;
           
@@ -1602,16 +1600,15 @@
                             <UserPlus size={14} className="ml-0.5" />
                           </button>
                         )}
-                        {/* 發送 Email 按鈕 (改為呼叫手機原生信箱 App) */}
+                        {/* 發送 Email 按鈕 (智慧裝置偵測版) */}
                         {vendor.email && (
-                          <a 
-                            href={`mailto:${vendor.email}?body=${encodeURIComponent(`${vendor.company ? vendor.company + '\n' : ''}${vendor.department ? vendor.department + '\n' : ''}${vendor.name || ''} ${vendor.honorific || ''}\n\n`)}`}
+                          <button 
+                            onClick={(e) => handleEmailClick(vendor, e)}
                             className="w-8 h-8 bg-blue-500 text-white hover:bg-blue-600 active:bg-blue-700 rounded-full transition-all shadow-md hover:shadow-lg flex items-center justify-center opacity-80 hover:opacity-100 hover:-translate-y-0.5"
                             title={t('sendEmail')}
-                            onClick={(e) => e.stopPropagation()}
                           >
                             <Send size={14} className="ml-0.5" />
-                          </a>
+                          </button>
                         )}
                       </div>
 
