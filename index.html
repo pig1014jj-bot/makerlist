@@ -63,7 +63,7 @@
     import { getAuth, signInWithCustomToken, signInAnonymously, onAuthStateChanged, signInWithEmailAndPassword, signOut } from 'firebase/auth';
     import { getFirestore, collection, doc, setDoc, deleteDoc, onSnapshot, writeBatch } from 'firebase/firestore';
 
-    // ★ 徹底移除環境偵測，為 GitHub 部署強制寫死金鑰與模型
+    // ★ 雙金鑰設定
     const firebaseApiKey = "AIzaSyAegrsQB3HXbY8ousmnFAXqAmFADtlmE5E"; // Firebase 專用金鑰
     const geminiApiKey = "AIzaSyB4_odnld9eL6OVb0OYYe4nDdXpiDVEobE"; // Gemini AI 專屬金鑰
 
@@ -260,12 +260,14 @@
       }
     };
 
-    // ★ 自動模型備援機制：將最可靠的 1.5-flash 排第一位，並正確處理 429 額度耗盡的問題
+    // ★ 自動模型備援機制：加入最新的 gemini-3-flash-preview 並妥善處理 429 和 404 問題
     const generateContentWithFallback = async (payload, apiKey) => {
       const modelsToTry = [
-        "gemini-1.5-flash",        // 首選：最穩定、免費額度配置最完整的版本
-        "gemini-1.5-flash-latest", 
-        "gemini-2.0-flash"         // 2.0 版本在某些地區或免費專案中會回報 Quota Limit 0 (429錯誤)
+        "gemini-3-flash-preview",          // 👑 優先嘗試最新 3.0 預覽版
+        "gemini-2.5-flash-preview-09-2025",// 備用 1: 2.5 預覽版
+        "gemini-2.0-flash",                // 備用 2: 2.0 穩定版 (可能會遇到額度 429)
+        "gemini-1.5-flash",                // 備用 3: 1.5 穩定版 (免費額度最高、最不會被限制)
+        "gemini-flash"                     // 終極備用: 通用別名，讓伺服器自動決定
       ];
       
       let lastError;
@@ -277,19 +279,19 @@
             headers: { 'Content-Type': 'application/json' }, 
             body: JSON.stringify(payload) 
           });
-          return res;
+          return res; // 只要有一個模型成功，就立刻回傳並終止嘗試
         } catch (err) {
           console.warn(`[備援機制] 模型 ${model} 測試失敗:`, err.message);
           lastError = err;
           
-          // 如果是 404 (模型找不到) 或是 429 (該模型額度耗盡)，就換下一個模型試試看
-          // 如果是其他問題 (例如 403 金鑰錯誤)，直接停止並報錯
+          // 如果是 404 (找不到) 或 429 (額度用盡)，自動切換下一個模型繼續挑戰！
+          // 否則 (如 403 金鑰權限無效)，代表整把鑰匙壞了，直接報錯
           if (err.status !== 404 && err.status !== 429) {
             throw err; 
           }
         }
       }
-      throw lastError; // 全部失敗，拋出最後一個錯誤
+      throw lastError; // 所有備用方案都失敗了
     };
 
     const getNeonTagStyle = (text) => {
@@ -709,7 +711,7 @@
             }
           };
 
-          // ★ 呼叫最新的自動備援機制
+          // ★ 呼叫備援機制，讓 3.0 或 1.5 閃亮登場
           const result = await generateContentWithFallback(payload, geminiApiKey);
           const extractedText = result.candidates && result.candidates[0] && result.candidates[0].content && result.candidates[0].content.parts && result.candidates[0].content.parts[0] && result.candidates[0].content.parts[0].text;
           
@@ -725,8 +727,9 @@
         } catch (error) {
           console.error("OCR 處理失敗:", error);
           let errorMsg = error.message;
-          if (error.status === 429) errorMsg = "API 免費請求額度已耗盡 (Quota Exceeded)";
+          if (error.status === 429) errorMsg = "API 免費額度耗盡 (Quota Exceeded)";
           else if (error.status === 403) errorMsg = "API 金鑰無效或權限不足";
+          else if (error.status === 404) errorMsg = "不支援此模型版本 (Model Not Found)";
           showToast(`${t('toastOcrFail')} [${errorMsg}]`);
         } finally {
           setIsProcessing(false);
@@ -766,7 +769,7 @@
             }
           };
 
-          // ★ 呼叫最新的自動備援機制
+          // ★ 呼叫備援機制
           const result = await generateContentWithFallback(payload, geminiApiKey);
           const extractedText = result.candidates && result.candidates[0] && result.candidates[0].content && result.candidates[0].content.parts && result.candidates[0].content.parts[0] && result.candidates[0].content.parts[0].text;
           
@@ -793,8 +796,9 @@
         } catch (error) {
           console.error("AI Auto-complete error:", error);
           let errorMsg = error.message;
-          if (error.status === 429) errorMsg = "API 免費請求額度已耗盡 (Quota Exceeded)";
+          if (error.status === 429) errorMsg = "API 免費額度耗盡 (Quota Exceeded)";
           else if (error.status === 403) errorMsg = "API 金鑰無效或權限不足";
+          else if (error.status === 404) errorMsg = "不支援此模型版本 (Model Not Found)";
           showToast(`${t('toastAiFail')} [${errorMsg}]`);
         } finally {
           setIsProcessing(false);
