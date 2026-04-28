@@ -63,12 +63,10 @@
     import { getAuth, signInWithCustomToken, signInAnonymously, onAuthStateChanged, signInWithEmailAndPassword, signOut } from 'firebase/auth';
     import { getFirestore, collection, doc, setDoc, deleteDoc, onSnapshot, writeBatch } from 'firebase/firestore';
 
+    // ★ 徹底移除環境偵測，為 GitHub 部署強制寫死金鑰與模型
     const firebaseApiKey = "AIzaSyAegrsQB3HXbY8ousmnFAXqAmFADtlmE5E"; // Firebase 專用金鑰
-    
-    // ★ 自動環境偵測：解決預覽畫面 404 與 GitHub 部署 403 的衝突
-    const isCanvasPreview = typeof __app_id !== 'undefined';
-    const geminiApiKey = isCanvasPreview ? "" : "AIzaSyB4_odnld9eL6OVb0OYYe4nDdXpiDVEobE"; 
-    const aiModelName = isCanvasPreview ? "gemini-2.5-flash-preview-09-2025" : "gemini-1.5-flash";
+    const geminiApiKey = "AIzaSyB4_odnld9eL6OVb0OYYe4nDdXpiDVEobE"; // Gemini AI 專屬金鑰
+    const aiModelName = "gemini-1.5-flash"; // 強制使用公開穩定的 1.5-flash 模型，避免 404 錯誤
 
     // Firebase の初期化
     const firebaseConfig = {
@@ -238,12 +236,17 @@
       }
     };
 
+    // ★ 強化版 fetchWithRetry：出錯時會攔截並印出真實的錯誤原因
     const fetchWithRetry = async (url, options, retries = 5) => {
       const delays = [1000, 2000, 4000, 8000, 16000];
       for (let i = 0; i < retries; i++) {
         try {
           const res = await fetch(url, options);
-          if (!res.ok) throw new Error(`HTTP error! status: ${res.status}`);
+          if (!res.ok) {
+            let errorText = '';
+            try { errorText = await res.text(); } catch(e) {}
+            throw new Error(`HTTP ${res.status}: ${errorText}`);
+          }
           return await res.json();
         } catch (err) {
           if (i === retries - 1) throw err;
@@ -306,7 +309,7 @@
 
       const showToast = (msg) => {
         setToast(msg);
-        setTimeout(() => setToast(''), 3000);
+        setTimeout(() => setToast(''), 4000);
       };
 
       const [user, setUser] = useState(null);
