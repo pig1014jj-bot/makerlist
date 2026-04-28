@@ -631,7 +631,7 @@
         setFormData(prev => ({ ...prev, projects: (prev.projects || []).filter(item => item !== p) }));
       };
 
-      // ★ 產生並下載 vCard (支援 iOS 裝置原生畫面)
+      // ★ 產生並下載 vCard (完全修復 iOS 下載問題)
       const handleDownloadVCard = async (vendor, e) => {
         e.stopPropagation();
         const parts = [
@@ -652,25 +652,18 @@
         const vcard = parts.filter(Boolean).join('\r\n');
         const fileName = `${vendor.name || vendor.company || 'contact'}.vcf`;
         
-        // 判斷是否為 iOS 裝置
-        const isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent) && !window.MSStream;
-
-        if (isIOS) {
-          // iOS 專屬：將 vCard 轉為 Data URL 直接跳轉，Safari 會直接攔截並跳出原生的「加入聯絡人」畫面
-          const dataUrl = `data:text/vcard;charset=utf-8,${encodeURIComponent(vcard)}`;
-          window.location.href = dataUrl;
-        } else {
-          // 電腦 / Android：標準下載方式
-          const blob = new Blob(['\ufeff' + vcard], { type: 'text/vcard;charset=utf-8;' });
-          const url = URL.createObjectURL(blob);
-          const link = document.createElement('a');
-          link.href = url;
-          link.setAttribute('download', fileName);
-          document.body.appendChild(link);
-          link.click();
-          document.body.removeChild(link);
-          URL.revokeObjectURL(url);
-        }
+        // 全部使用標準 Blob 下載。
+        // iOS 15+ Safari 支援 Blob 下載，點擊按鈕後會正常跳出「要下載此檔案嗎？」
+        // 下載完成後，使用者只要點開檔案，iOS 就會自動把它無縫轉換成「加入聯絡人」畫面。
+        const blob = new Blob(['\ufeff' + vcard], { type: 'text/vcard;charset=utf-8;' });
+        const url = URL.createObjectURL(blob);
+        const link = document.createElement('a');
+        link.href = url;
+        link.setAttribute('download', fileName);
+        document.body.appendChild(link);
+        link.click();
+        document.body.removeChild(link);
+        setTimeout(() => URL.revokeObjectURL(url), 100); // 延遲釋放以防 iOS 攔截
       };
 
       // ★ 智慧型 Email 發送處理 (判斷手機或電腦)
@@ -683,17 +676,12 @@
         const isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent) && !window.MSStream;
         const isAndroid = /Android/.test(navigator.userAgent);
 
-        if (isIOS) {
-          // iPhone/iPad: 優先嘗試打開 Gmail App，若失敗則延遲 500 毫秒後呼叫系統預設郵件(Apple Mail)
-          window.location.href = `googlegmail:///co?to=${email}&body=${encodedBody}`;
-          setTimeout(() => {
-            window.location.href = `mailto:${email}?body=${encodedBody}`;
-          }, 500);
-        } else if (isAndroid) {
-          // Android: 系統本身的 mailto 支援 App 選擇器，能完美對應 Gmail
+        if (isIOS || isAndroid) {
+          // 手機端：直接使用標準 mailto 協定。
+          // iOS / Android 會自動呼叫使用者設定的「預設郵件 App」(可能是 Gmail App 或是 Apple Mail，完全不用登入)
           window.location.href = `mailto:${email}?body=${encodedBody}`;
         } else {
-          // 電腦版：強制打開瀏覽器的 Gmail 網頁版
+          // 電腦版：強制打開瀏覽器的 Gmail 網頁版，最符合電腦辦公習慣
           window.open(`https://mail.google.com/mail/?view=cm&fs=1&to=${email}&body=${encodedBody}`, '_blank');
         }
       };
