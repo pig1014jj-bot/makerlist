@@ -260,13 +260,13 @@
       }
     };
 
-    // ★ 自動模型備援機制：依序嘗試可用的模型，徹底解決 404 找不到模型別名的問題
+    // ★ 自動模型備援機制：改用「通用別名」與最新世代模型，徹底避免舊模型被下架的問題
     const generateContentWithFallback = async (payload, apiKey) => {
       const modelsToTry = [
-        "gemini-1.5-flash-latest",
-        "gemini-1.5-flash",
-        "gemini-1.5-pro-latest",
-        "gemini-2.5-flash-preview-09-2025" 
+        "gemini-flash",        // 最佳解：Google 官方通用別名，永遠自動導向最新穩定版
+        "gemini-2.0-flash",    // 新世代穩定版
+        "gemini-2.5-flash",    // 2.5 穩定版
+        "gemini-1.5-flash"     // 保留作為最後的底線
       ];
       
       let lastError;
