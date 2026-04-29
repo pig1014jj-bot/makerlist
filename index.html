@@ -54,8 +54,8 @@
       Download, Smartphone, Globe, Tag, FileUp, ImagePlus,
       Link as LinkIcon, QrCode, PlusCircle, Calendar, Clock,
       Share, Cloud, CloudOff, Shield, ShieldCheck, History, Filter,
-      Map, List, Sparkles, SlidersHorizontal, ArrowDown, ArrowUp, Book,
-      ChevronLeft, ChevronRight, Folder, FolderOpen, GripVertical, HelpCircle, Send, UserPlus, ChevronDown
+      List, Sparkles, SlidersHorizontal, ArrowDown, ArrowUp, Book,
+      ChevronLeft, ChevronRight, Folder, FolderOpen, GripVertical, HelpCircle, Send, UserPlus, ChevronDown, Store
     } from 'lucide-react';
 
     // Firebase のインポート
@@ -90,6 +90,17 @@
     // ★ 在此設定被允許的管理員 Email 列表
     const ADMIN_EMAILS = ['wu-chiehchun@plantec.co.jp', 'admin@example.com', 'leo@example.com'];
 
+    // ★ 統一的大分類清單
+    const DEFAULT_MAIN_CATEGORIES = [
+      "金属建材（スパンドレル・ルーバー）", "木質建材・フローリング", "タイル・レンガ・石",
+      "カーペット・フロアタイル・畳", "カーテン・ブラインド・張地", "化粧板・化粧フィルム",
+      "塗料・左官材", "セメント系建材・下地材", "壁紙・和紙", "設備機器（バス・トイレ・洗面）",
+      "建築金物・造作材", "屋根材", "サイディング・外壁材", "外構・エクステリア",
+      "照明・サイン", "建具・開口部・間仕切り", "家具（FF&E）", "ファブリック"
+    ];
+    // ★ 強制 AI 使用此清單的提示詞
+    const CATEGORY_PROMPT = `Vendor category. MUST format as 'Main Category > Sub Category'. 'Main Category' MUST be exactly one of: ${DEFAULT_MAIN_CATEGORIES.join(', ')}. (e.g. '金属建材（スパンドレル・ルーバー） > アルミ', 'タイル・レンガ・石 > 大理石')`;
+
     // ------------------------------
     // 多言語翻譯字典 (i18n Translations)
     // ------------------------------
@@ -109,6 +120,7 @@
         contactPerson: "聯絡人", catDept: "部門/職稱", catName: "姓名", catFurigana: "拼音", catHonorific: "稱謂",
         contactMethod: "通訊方式", catPhone: "公司電話", catMobile: "手機號碼", catEmail: "電子郵件",
         addressAndNotes: "地址與備註", catPostal: "郵遞區號", catAddress1: "地址 1", catAddress2: "地址 2", catNotes: "備註",
+        hasShowroom: "有 Showroom", showroomAddress: "Showroom 地址", showroomBadge: "展示間",
         catalogAndQR: "產品型錄連結與 QR Code", addLink: "新增連結", noCatalogLinks: "尚未新增任何型錄連結",
         catalogName: "型錄名稱", catalogUrl: "網址 (URL)", qrPreview: "QR預覽",
         cancel: "取消", close: "關閉", saveData: "儲存資料",
@@ -125,10 +137,11 @@
         pwaPrompt: "點擊下方分享按鈕，選擇「加入主畫面」將此系統安裝為 App。",
         egCategory: "例：防水材", egCompany: "例：科技創新股份有限公司", egCatalog: "例：2025年綜合型錄", egYear: "例：2026",
         quickFilter: "快速篩選：", clickToFilter: "點擊以加入或移除篩選",
-        listView: "列表模式", mapView: "地圖模式", mapNav: "Google Maps 導航", mapNoKey: "尚未設定 Google Maps API Key", mapKeyHint: "請在程式碼頂部的 `googleMapsApiKey` 填入您的金鑰，即可解鎖完整地圖功能與大頭針顯示。",
+        listView: "列表模式", mapNav: "地圖導航",
         aiAutoComplete: "AI 自動補全", toastAiSuccess: "AI 已成功聯網補齊資料！", toastAiFail: "AI 補全失敗", toastNeedCompany: "請先輸入「公司名稱」才能使用 AI 補全",
         advFilters: "進階篩選", sortBy: "排序方式", sortNewest: "最新更新優先", sortOldest: "最早建立優先", filterCatalog: "型錄狀態", hasCatalog: "僅顯示有型錄者", multiCategory: "分類多選", clearFilters: "清除全部條件",
         projectFolders: "專案資料夾", addProject: "加入", projectPlaceholder: "輸入專案名稱 (按 Enter 加入)", allProjects: "全部廠商", noProject: "未分類",
+        multiProject: "專案多選",
         sortManual: "手動拖曳排序", disableSortOnFilter: "請先清除所有篩選與搜尋，再進行拖曳排序。", toastLocalSortOnly: "排序已變更 (僅本地預覽，登入管理員可永久儲存)", toastSortSaved: "自訂排序已成功儲存至雲端",
         help: "說明", helpTitle: "系統使用說明 & 快捷鍵", helpDesc: "歡迎使用 Smartlist！以下是主要功能與操作指南：",
         helpAdd: "📷 建立資料：點擊「掃描名片」或「上傳照片」，AI 會自動辨識名片內容。輸入公司名稱後，可點擊「AI 自動補全」自動上網尋找地址與電話。",
@@ -139,7 +152,16 @@
         helpShortcutEsc: "• 按 Esc 鍵：快速關閉任何開啟的視窗。",
         helpShortcutEnter: "• 按 Enter 鍵：在專案輸入框快速加入專案、或在登入視窗快速登入。",
         sendEmail: "寄送電子郵件",
-        addContact: "同步至手機通訊錄"
+        addContact: "同步至手機通訊錄",
+        otherUncategorized: "其他 (未分類)",
+        editCatMode: "分類管理",
+        addMainCat: "新增大分類",
+        addSubCat: "新增小分類",
+        catMoveConfirm: "確定要將「{0}」移至「{1}」嗎？\n這將會更新所有相關廠商的資料。",
+        toastCatMoved: "成功更新 {0} 筆分類資料！",
+        adminOnlyEditCat: "※ 分類整理僅限管理員",
+        moveToMainCat: "移至大分類...",
+        needsUpdate: "待更新"
       },
       ja: {
         appTitle: "Smartlist",
@@ -156,6 +178,7 @@
         contactPerson: "連絡先（担当者）", catDept: "部署・役職", catName: "氏名", catFurigana: "フリガナ", catHonorific: "敬称",
         contactMethod: "連絡先（通信）", catPhone: "電話番号", catMobile: "携帯電話", catEmail: "メールアドレス",
         addressAndNotes: "住所と備考", catPostal: "郵便番号", catAddress1: "住所 1", catAddress2: "住所 2", catNotes: "備考",
+        hasShowroom: "ショールームあり", showroomAddress: "ショールーム住所", showroomBadge: "ショールーム",
         catalogAndQR: "カタログリンクとQRコード", addLink: "リンクを追加", noCatalogLinks: "カタログリンクがありません",
         catalogName: "カタログ名", catalogUrl: "URL", qrPreview: "QRプレビュー",
         cancel: "キャンセル", close: "閉じる", saveData: "保存",
@@ -172,10 +195,11 @@
         pwaPrompt: "下の共有ボタンをタップし、「ホーム画面に追加」を選択してアプリとしてインストールできます。",
         egCategory: "例：防水材", egCompany: "例：〇〇株式会社", egCatalog: "例：2025年総合カタログ", egYear: "例：2026",
         quickFilter: "クイック絞り込み：", clickToFilter: "クリックしてフィルタを追加/解除",
-        listView: "リスト表示", mapView: "マップ表示", mapNav: "Google Maps ナビ", mapNoKey: "Google Maps API Keyが未設定です", mapKeyHint: "コード上部の `googleMapsApiKey` にAPIキーを入力すると、フルマップとピン表示が有効になります。",
+        listView: "リスト表示", mapNav: "マップで開く",
         aiAutoComplete: "AI 自動補完", toastAiSuccess: "AIがウェブからデータを補完しました！", toastAiFail: "AI補完に失敗しました", toastNeedCompany: "AI補完を使用するには、まず「会社名」を入力してください",
         advFilters: "高度な絞り込み", sortBy: "並べ替え", sortNewest: "最新順", sortOldest: "作成日時の古い順", filterCatalog: "カタログの有無", hasCatalog: "カタログありのみ表示", multiCategory: "カテゴリ複数選択", clearFilters: "条件をクリア",
         projectFolders: "プロジェクト", addProject: "追加", projectPlaceholder: "プロジェクト名を入力 (Enterで追加)", allProjects: "全ベンダー", noProject: "未分類",
+        multiProject: "プロジェクト複数選択",
         sortManual: "手動ドラッグ並べ替え", disableSortOnFilter: "ドラッグ並べ替えを行う前に、すべてのフィルターと検索をクリアしてください。", toastLocalSortOnly: "並べ替えました (ローカルプレビューのみ。保存するには管理者ログインが必要です)", toastSortSaved: "カスタム並べ替えをクラウドに保存しました",
         help: "ヘルプ", helpTitle: "使い方とショートカット", helpDesc: "Smartlistへようこそ！主な機能と操作方法は以下の通りです：",
         helpAdd: "📷 データ作成: 「スキャン」または「アップロード」でAIが名刺を自動認識。会社名を入力後、「AI自動補完」で住所や電話番号をウェブ検索できます。",
@@ -186,7 +210,16 @@
         helpShortcutEsc: "• Esc キー: 開いているモーダル（ウィンドウ）を閉じます。",
         helpShortcutEnter: "• Enter キー: プロジェクトの追加、またはログインの実行を素早く行えます。",
         sendEmail: "メールを作成",
-        addContact: "スマホの連絡先に同期"
+        addContact: "スマホの連絡先に同期",
+        otherUncategorized: "その他（未分類）",
+        editCatMode: "カテゴリ管理",
+        addMainCat: "大カテゴリ追加",
+        addSubCat: "小カテゴリ追加",
+        catMoveConfirm: "「{0}」を「{1}」に移動しますか？\n関連するすべてのベンダーデータが更新されます。",
+        toastCatMoved: "{0}件のカテゴリデータを更新しました！",
+        adminOnlyEditCat: "※ カテゴリ整理は管理者のみ",
+        moveToMainCat: "大カテゴリへ移動...",
+        needsUpdate: "更新待ち"
       },
       en: {
         appTitle: "Smartlist",
@@ -203,6 +236,7 @@
         contactPerson: "Contact Person", catDept: "Dept / Title", catName: "Name", catFurigana: "Phonetic", catHonorific: "Honorific",
         contactMethod: "Communication", catPhone: "Phone", catMobile: "Mobile", catEmail: "Email",
         addressAndNotes: "Address & Notes", catPostal: "Postal Code", catAddress1: "Address 1", catAddress2: "Address 2", catNotes: "Notes",
+        hasShowroom: "Has Showroom", showroomAddress: "Showroom Address", showroomBadge: "Showroom",
         catalogAndQR: "Catalog Links & QR Code", addLink: "Add Link", noCatalogLinks: "No catalog links added yet",
         catalogName: "Catalog Name", catalogUrl: "URL", qrPreview: "QR Preview",
         cancel: "Cancel", close: "Close", saveData: "Save Data",
@@ -219,10 +253,11 @@
         pwaPrompt: "Tap the share button below and select 'Add to Home Screen' to install this app.",
         egCategory: "Ex: Tiles", egCompany: "Ex: Tech Corp.", egCatalog: "Ex: 2025 Catalog", egYear: "Ex: 2026",
         quickFilter: "Quick Filter:", clickToFilter: "Click to toggle this filter",
-        listView: "List View", mapView: "Map View", mapNav: "Navigate via Google Maps", mapNoKey: "Google Maps API Key not set", mapKeyHint: "Please enter your key in `googleMapsApiKey` at the top of the code to unlock full map features and pin display.",
+        listView: "List View", mapNav: "Open in Map",
         aiAutoComplete: "AI Auto-Complete", toastAiSuccess: "AI auto-completed successfully via web!", toastAiFail: "AI auto-complete failed", toastNeedCompany: "Please enter 'Company Name' first to use AI",
         advFilters: "Advanced Filters", sortBy: "Sort By", sortNewest: "Newest Updated", sortOldest: "Oldest Created", filterCatalog: "Catalog Status", hasCatalog: "Has Catalog Only", multiCategory: "Select Categories", clearFilters: "Clear Filters",
         projectFolders: "Project Folders", addProject: "Add", projectPlaceholder: "Enter project name (Press Enter)", allProjects: "All Vendors", noProject: "Uncategorized",
+        multiProject: "Select Projects",
         sortManual: "Manual Drag Sort", disableSortOnFilter: "Please clear all filters and search before drag-sorting.", toastLocalSortOnly: "Sorted (Local preview only. Admin login required to save)", toastSortSaved: "Custom sort saved to cloud successfully",
         help: "Help", helpTitle: "Instructions & Shortcuts", helpDesc: "Welcome to Smartlist! Here are the main features and guides:",
         helpAdd: "📷 Add Data: Tap 'Scan' or 'Upload' to parse business cards with AI. Enter a company name and tap 'AI Auto-Complete' to search for its address and phone online.",
@@ -233,7 +268,16 @@
         helpShortcutEsc: "• Esc key: Quickly close any open window or modal.",
         helpShortcutEnter: "• Enter key: Quickly add a project in the input field, or submit the admin login form.",
         sendEmail: "Send Email",
-        addContact: "Save to Phone Contacts"
+        addContact: "Save to Phone Contacts",
+        otherUncategorized: "Others (Uncategorized)",
+        editCatMode: "Manage Categories",
+        addMainCat: "Add Main Category",
+        addSubCat: "Add Sub Category",
+        catMoveConfirm: "Move '{0}' to '{1}'?\nThis will update all related vendors.",
+        toastCatMoved: "Successfully updated {0} category records!",
+        adminOnlyEditCat: "※ Category sorting is Admin only",
+        moveToMainCat: "Move to Main Category...",
+        needsUpdate: "Needs Update"
       }
     };
 
@@ -311,17 +355,66 @@
       };
     };
 
+    // ★ 圖片裁切小精靈：根據 AI 給的 0~1000 比例座標，自動從原圖中把 Logo 切下來
+    const cropImageByBox = (base64Str, box) => {
+      return new Promise((resolve) => {
+        if (!box || box.xmin == null || box.xmax == null || box.ymin == null || box.ymax == null) {
+          return resolve(null);
+        }
+        const img = new Image();
+        img.onload = () => {
+          const canvas = document.createElement('canvas');
+          const ctx = canvas.getContext('2d');
+          
+          // 將 Gemini 0~1000 的比例座標轉換為真實像素座標
+          const realX = (box.xmin / 1000) * img.width;
+          const realY = (box.ymin / 1000) * img.height;
+          const realW = ((box.xmax - box.xmin) / 1000) * img.width;
+          const realH = ((box.ymax - box.ymin) / 1000) * img.height;
+          
+          if (realW <= 0 || realH <= 0) return resolve(null);
+          
+          // 加上 10% 的安全邊距 (Padding)，讓裁切下來的 Logo 不要太貼邊
+          const padding = Math.min(realW, realH) * 0.1;
+          const finalX = Math.max(0, realX - padding);
+          const finalY = Math.max(0, realY - padding);
+          const finalW = Math.min(img.width - finalX, realW + padding * 2);
+          const finalH = Math.min(img.height - finalY, realH + padding * 2);
+
+          canvas.width = finalW;
+          canvas.height = finalH;
+          
+          // 填上白色背景
+          ctx.fillStyle = "#ffffff";
+          ctx.fillRect(0, 0, finalW, finalH);
+          // 把 Logo 畫布區塊印上去
+          ctx.drawImage(img, finalX, finalY, finalW, finalH, 0, 0, finalW, finalH);
+          
+          // 回傳裁切後的高畫質 base64 圖片
+          resolve(canvas.toDataURL('image/jpeg', 0.9));
+        };
+        img.onerror = () => resolve(null);
+        img.src = base64Str;
+      });
+    };
+
     function App() {
       const currentYear = new Date().getFullYear().toString();
 
       const [lang, setLang] = useState('ja');
-      const [viewMode, setViewMode] = useState('list');
-      
       const [showAdvFilters, setShowAdvFilters] = useState(false);
       const [sortOrder, setSortOrder] = useState('desc'); 
       const [selectedCategories, setSelectedCategories] = useState([]); 
-      const [selectedProject, setSelectedProject] = useState(''); 
+      // ★ 專案改為陣列狀態，支援多選
+      const [selectedProjects, setSelectedProjects] = useState([]); 
       const [mustHaveCatalog, setMustHaveCatalog] = useState(false);
+
+      // ★ 分類管理員狀態
+      const [catSettings, setCatSettings] = useState({ mains: DEFAULT_MAIN_CATEGORIES, subs: {} });
+      const [editCatMode, setEditCatMode] = useState(false);
+      const [draggedCat, setDraggedCat] = useState(null);
+      // ★ 右鍵選單狀態 (Context Menu)
+      const [contextMenu, setContextMenu] = useState(null);
 
       const t = (key, arg1) => {
         let str = (translations[lang] && translations[lang][key]) || translations['zh'][key] || key;
@@ -358,10 +451,17 @@
             setDeleteId(null);
             setHistoryVendor(null);
             setShowHelp(false);
+            setContextMenu(null);
           }
         };
+        const handleGlobalClick = () => setContextMenu(null);
+        
         window.addEventListener('keydown', handleKeyDown);
-        return () => window.removeEventListener('keydown', handleKeyDown);
+        window.addEventListener('click', handleGlobalClick);
+        return () => {
+          window.removeEventListener('keydown', handleKeyDown);
+          window.removeEventListener('click', handleGlobalClick);
+        };
       }, []);
 
       useEffect(() => {
@@ -394,6 +494,25 @@
         });
         return () => unsubscribe();
       }, []);
+
+      // ★ 讀取 Firebase 上的自訂分類設定
+      useEffect(() => {
+        if (!user) return;
+        const unsub = onSnapshot(doc(db, 'public_settings', 'categories'), (docSnap) => {
+          if (docSnap.exists()) {
+            const data = docSnap.data();
+            setCatSettings({
+              mains: data.mains && data.mains.length > 0 ? data.mains : DEFAULT_MAIN_CATEGORIES,
+              subs: data.subs || {}
+            });
+          } else {
+            setCatSettings({ mains: DEFAULT_MAIN_CATEGORIES, subs: {} });
+          }
+        }, (err) => {
+          console.warn("Categories settings not available, using defaults");
+        });
+        return () => unsub();
+      }, [user]);
 
       const [isStandalone, setIsStandalone] = useState(false);
       const [showPwaPrompt, setShowPwaPrompt] = useState(false);
@@ -475,7 +594,8 @@
         }
       }, [user]);
 
-      const isFilterActive = searchTerm || selectedCategories.length > 0 || selectedProject || mustHaveCatalog;
+      // ★ 過濾邏輯更新：使用 selectedProjects 陣列
+      const isFilterActive = searchTerm || selectedCategories.length > 0 || selectedProjects.length > 0 || mustHaveCatalog;
       useEffect(() => {
         if (sortOrder === 'manual' && isFilterActive) {
            setSortOrder('desc');
@@ -492,10 +612,34 @@
       const [historyVendor, setHistoryVendor] = useState(null);
       const [selectedHistoryIndex, setSelectedHistoryIndex] = useState(0);
 
+      // ★ 動態資料年份視覺樣式 (智慧提示更新狀態)
+      const getYearTagProps = (dataYearStr) => {
+        let bgClass = "bg-gray-100 text-gray-700 border-gray-200";
+        let iconClass = "text-gray-500";
+        let tooltip = "";
+        
+        const vYear = parseInt(dataYearStr, 10);
+        const currYear = parseInt(currentYear, 10);
+        
+        if (!isNaN(vYear)) {
+          const diff = currYear - vYear;
+          if (diff > 0 && diff <= 3) {
+            bgClass = "bg-yellow-50 text-yellow-700 border-yellow-200"; 
+            iconClass = "text-yellow-600";
+          } else if (diff > 3) {
+            bgClass = "bg-red-50 text-red-700 border-red-200"; 
+            iconClass = "text-red-500";
+            tooltip = t('needsUpdate');
+          }
+        }
+        return { bgClass, iconClass, tooltip };
+      };
+
       const initialFormState = {
         dataYear: currentYear, category: '', company: '', hp: '', department: '', name: '', 
         furigana: '', honorific: '', phone: '', mobile: '', email: '', 
-        postalCode: '', address1: '', address2: '', notes: '', logo: '', catalogs: [], projects: [], lastUpdated: '', history: [], sortIndex: 0
+        postalCode: '', address1: '', address2: '', notes: '', logo: '', catalogs: [], projects: [], lastUpdated: '', history: [], sortIndex: 0,
+        hasShowroom: false, showroomAddress: ''
       };
       const [formData, setFormData] = useState(initialFormState);
 
@@ -631,7 +775,124 @@
         setFormData(prev => ({ ...prev, projects: (prev.projects || []).filter(item => item !== p) }));
       };
 
-      // ★ 產生並下載 vCard (極致相容版，解決 iOS 阻擋下載與 PWA 問題)
+      // ★ 新增自訂大分類
+      const handleAddMainCategory = async () => {
+        const name = prompt(lang === 'ja' ? "新しい大カテゴリ名を入力してください：" : "請輸入新的大分類名稱：");
+        if (!name) return;
+        const newMains = [...catSettings.mains, name.trim()];
+        setCatSettings(prev => ({ ...prev, mains: newMains }));
+        try {
+          await setDoc(doc(db, 'public_settings', 'categories'), { ...catSettings, mains: newMains }, { merge: true });
+        } catch(e) { console.error(e); }
+      };
+
+      // ★ 新增自訂小分類
+      const handleAddSubCategory = async (mainCat) => {
+        const name = prompt(lang === 'ja' ? `「${mainCat}」の新しい小カテゴリ名を入力してください：` : `請輸入「${mainCat}」的小分類名稱：`);
+        if (!name) return;
+        const subName = name.trim();
+        const newSubs = { ...catSettings.subs };
+        if (!newSubs[mainCat]) newSubs[mainCat] = [];
+        if (!newSubs[mainCat].includes(subName)) {
+          newSubs[mainCat].push(subName);
+          setCatSettings(prev => ({ ...prev, subs: newSubs }));
+          try {
+            await setDoc(doc(db, 'public_settings', 'categories'), { ...catSettings, subs: newSubs }, { merge: true });
+          } catch(e) { console.error(e); }
+        }
+      };
+
+      // ★ 拖曳/點擊 更新分類核心邏輯
+      const handleCategoryDrop = async (targetMainCat, draggedCatString) => {
+        if (!draggedCatString || !user) return;
+        const parts = draggedCatString.split(/[>＞]/);
+        const subCatName = parts.length > 1 ? parts.slice(1).join('>').trim() : draggedCatString.trim();
+
+        const newCatString = targetMainCat === "OTHER" ? subCatName : `${targetMainCat} > ${subCatName}`;
+        if (newCatString === draggedCatString) return;
+
+        const targetName = targetMainCat === "OTHER" ? t('otherUncategorized') : targetMainCat;
+        if (!window.confirm(t('catMoveConfirm').replace('{0}', subCatName).replace('{1}', targetName))) return;
+
+        setIsProcessing(true);
+        try {
+            // 找出所有擁有此舊分類的廠商
+            const vendorsToUpdate = vendors.filter(v => v.category === draggedCatString);
+            if (vendorsToUpdate.length > 0) {
+              const chunks = [];
+              for (let i = 0; i < vendorsToUpdate.length; i += 500) {
+                chunks.push(vendorsToUpdate.slice(i, i + 500));
+              }
+              
+              for (const chunk of chunks) {
+                const batch = writeBatch(db);
+                chunk.forEach(v => {
+                  const docRef = doc(collection(db, 'public_vendors'), v.id);
+                  batch.update(docRef, { category: newCatString });
+                });
+                await batch.commit();
+              }
+            }
+            
+            // 更新設定檔中的小分類清單 (從舊的地方移除，加入新的地方)
+            const newSubs = { ...catSettings.subs };
+            let updatedSettings = false;
+            
+            if (parts.length > 1) {
+              const oldMain = parts[0].trim();
+              if (newSubs[oldMain]) {
+                newSubs[oldMain] = newSubs[oldMain].filter(s => s !== subCatName);
+                updatedSettings = true;
+              }
+            }
+            
+            if (targetMainCat !== "OTHER") {
+              if (!newSubs[targetMainCat]) newSubs[targetMainCat] = [];
+              if (!newSubs[targetMainCat].includes(subCatName)) {
+                newSubs[targetMainCat].push(subCatName);
+                updatedSettings = true;
+              }
+            }
+
+            if (updatedSettings) {
+              setCatSettings(prev => ({ ...prev, subs: newSubs }));
+              await setDoc(doc(db, 'public_settings', 'categories'), { ...catSettings, subs: newSubs }, { merge: true });
+            }
+
+            showToast(t('toastCatMoved').replace('{0}', vendorsToUpdate.length));
+        } catch (error) {
+            console.error(error);
+            showToast("Update failed");
+        } finally {
+            setIsProcessing(false);
+            setDraggedCat(null);
+        }
+      };
+
+      // ★ 智慧型地圖導航處理 (完美支援 iOS / Android / 電腦，支援傳入任意地址)
+      const openMapAddress = (address, e) => {
+        if (e) e.stopPropagation();
+        if (!address) return;
+        
+        const encodedAddress = encodeURIComponent(address);
+        const isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent) && !window.MSStream;
+
+        if (isIOS) {
+          window.location.href = `comgooglemaps://?q=${encodedAddress}`;
+          setTimeout(() => {
+            window.location.href = `https://www.google.com/maps/search/?api=1&query=${encodedAddress}`;
+          }, 500);
+        } else {
+          window.open(`https://www.google.com/maps/search/?api=1&query=${encodedAddress}`, '_blank');
+        }
+      };
+
+      const handleMapClick = (vendor, e) => {
+        const address = `${vendor.postalCode || ''} ${vendor.address1 || ''} ${vendor.address2 || ''}`.trim();
+        openMapAddress(address, e);
+      };
+
+      // ★ 產生並下載 vCard (支援 Showroom 地址)
       const handleDownloadVCard = async (vendor, e) => {
         e.stopPropagation();
         const parts = [
@@ -644,15 +905,19 @@
           vendor.mobile ? `TEL;TYPE=CELL,VOICE:${vendor.mobile}` : '',
           vendor.email ? `EMAIL;TYPE=WORK:${vendor.email}` : '',
           vendor.hp ? `URL:${vendor.hp}` : '',
-          (vendor.address1 || vendor.address2 || vendor.postalCode) ? `ADR;TYPE=WORK:;;${vendor.address1 || ''} ${vendor.address2 || ''};;;${vendor.postalCode || ''};` : '',
-          vendor.notes ? `NOTE:${vendor.notes}` : '',
-          'END:VCARD'
+          (vendor.address1 || vendor.address2 || vendor.postalCode) ? `ADR;TYPE=WORK:;;${vendor.address1 || ''} ${vendor.address2 || ''};;;${vendor.postalCode || ''};` : ''
         ];
+
+        // 支援額外的 Showroom 地址
+        if (vendor.hasShowroom && vendor.showroomAddress) {
+          parts.push(`ADR;TYPE=POSTAL:;;${vendor.showroomAddress};;;;`);
+        }
+        parts.push(vendor.notes ? `NOTE:${vendor.notes}` : '');
+        parts.push('END:VCARD');
         
         const vcardData = parts.filter(Boolean).join('\r\n');
         const fileName = `${vendor.name || vendor.company || 'contact'}.vcf`;
         
-        // 1. 優先嘗試 Web Share API (iOS Safari 最強解，直接彈出原生分享與加入聯絡人)
         if (navigator.share) {
           try {
             const file = new File([new Blob(['\ufeff' + vcardData], { type: 'text/vcard' })], fileName, { type: 'text/vcard' });
@@ -665,17 +930,13 @@
           }
         }
 
-        // 2. 裝置偵測 (抓出 iPhone/iPad)
         const isIOS = (/iPad|iPhone|iPod/.test(navigator.userAgent)) || (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
-        
-        // 3. iOS 降級方案：使用 Data URI 重新導向 (避開 PWA / WebView 的 Blob 阻擋)
         if (isIOS) {
           const dataUrl = `data:text/vcard;charset=utf-8,${encodeURIComponent(vcardData)}`;
           window.location.assign(dataUrl);
           return;
         }
 
-        // 4. 電腦 / Android 標準 Blob 下載
         const blob = new Blob(['\ufeff' + vcardData], { type: 'text/vcard;charset=utf-8;' });
         const url = URL.createObjectURL(blob);
         const link = document.createElement('a');
@@ -687,20 +948,16 @@
         setTimeout(() => URL.revokeObjectURL(url), 100);
       };
 
-      // ★ 智慧型 Email 發送處理 (完美識別隱藏版 iPad 與 iOS)
       const handleEmailClick = (vendor, e) => {
         e.stopPropagation();
         const encodedBody = encodeURIComponent(`${vendor.company ? vendor.company + '\n' : ''}${vendor.department ? vendor.department + '\n' : ''}${vendor.name || ''} ${vendor.honorific || ''}\n\n`);
         const email = encodeURIComponent(vendor.email);
         
-        // 強化版裝置偵測：確保抓出偽裝成 Mac 的 iPad 以及所有的手機
         const isMobile = /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent) || (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
 
         if (isMobile) {
-          // 手機與平板端：強制使用標準 mailto 協定，呼叫原生信箱 App
           window.location.href = `mailto:${email}?body=${encodedBody}`;
         } else {
-          // 桌機端：打開 Gmail 網頁版
           window.open(`https://mail.google.com/mail/?view=cm&fs=1&to=${email}&body=${encodedBody}`, '_blank');
         }
       };
@@ -709,7 +966,7 @@
         if (!fImg && !bImg) return;
         setIsProcessing(true);
         try {
-          const ocrPrompt = "Extract information from this business card image(s) (front and potentially back). Return strictly in the specified JSON format. If a field is not found, return an empty string. Convert Japanese names to Katakana for the 'furigana' field if applicable. Default 'honorific' to '様' for Japanese or blank otherwise. Split addresses into address1 (prefecture/city/street) and address2 (building/floor).";
+          const ocrPrompt = "Extract information from this business card image(s) (front and potentially back). Return strictly in the specified JSON format. If a field is not found, return an empty string. Convert Japanese names to Katakana for the 'furigana' field if applicable. Default 'honorific' to '様' for Japanese or blank otherwise. Split addresses into address1 (prefecture/city/street) and address2 (building/floor). Determine if the company has a physical showroom (hasShowroom) and extract its address (showroomAddress). Also, specifically look for the company logo on the front card and provide its bounding box (logoBox) with xmin, ymin, xmax, ymax scaled proportionally from 0 to 1000 (where 0,0 is top-left and 1000,1000 is bottom-right). If no logo is found, omit logoBox entirely.";
           
           const parts = [{ text: ocrPrompt }];
           if (fImg) parts.push({ inlineData: { mimeType: getMimeType(fImg), data: fImg.split(',')[1] } });
@@ -723,7 +980,7 @@
                 type: "OBJECT",
                 properties: {
                   dataYear: { type: "STRING", description: "Year printed on the card" },
-                  category: { type: "STRING", description: "Vendor category/industry (e.g. Waterproofing, Tiles)" },
+                  category: { type: "STRING", description: CATEGORY_PROMPT },
                   company: { type: "STRING", description: "Company name" },
                   hp: { type: "STRING", description: "Company website URL" },
                   department: { type: "STRING", description: "Department and title" },
@@ -736,7 +993,19 @@
                   postalCode: { type: "STRING", description: "Postal code" },
                   address1: { type: "STRING", description: "Address part 1 (State/City/Street)" },
                   address2: { type: "STRING", description: "Address part 2 (Building/Floor)" },
-                  notes: { type: "STRING", description: "Additional notes or remarks" }
+                  notes: { type: "STRING", description: "Additional notes or remarks" },
+                  hasShowroom: { type: "BOOLEAN", description: "Whether the card mentions a showroom" },
+                  showroomAddress: { type: "STRING", description: "The address of the showroom, if present" },
+                  logoBox: {
+                    type: "OBJECT",
+                    description: "Bounding box of the company logo (0-1000 scale). Omit if no logo.",
+                    properties: {
+                      xmin: { type: "NUMBER" },
+                      ymin: { type: "NUMBER" },
+                      xmax: { type: "NUMBER" },
+                      ymax: { type: "NUMBER" }
+                    }
+                  }
                 }
               }
             }
@@ -751,7 +1020,16 @@
               const parsedData = JSON.parse(jsonMatch[0]);
               if (!parsedData.honorific && lang === 'ja') parsedData.honorific = '様';
               if (!parsedData.dataYear) parsedData.dataYear = currentYear; 
-              setFormData(prev => ({ ...prev, ...parsedData }));
+              
+              if (parsedData.logoBox && fImg) {
+                const croppedLogo = await cropImageByBox(fImg, parsedData.logoBox);
+                if (croppedLogo) {
+                  parsedData.logo = croppedLogo; 
+                }
+                delete parsedData.logoBox; 
+              }
+
+              setFormData(prev => ({ ...prev, ...parsedData, hasShowroom: parsedData.hasShowroom || false }));
             }
           }
         } catch (error) {
@@ -767,8 +1045,8 @@
       };
 
       const handleInputChange = (e) => {
-        const { name, value } = e.target;
-        setFormData(prev => ({ ...prev, [name]: value }));
+        const { name, value, type, checked } = e.target;
+        setFormData(prev => ({ ...prev, [name]: type === 'checkbox' ? checked : value }));
       };
 
       const handleAIAutoComplete = async () => {
@@ -778,7 +1056,7 @@
         }
         setIsProcessing(true);
         try {
-          const prompt = `Search the public internet to find business contact information for the company "${formData.company}" in Japan (or matching the provided website "${formData.hp}"). Return strictly in the specified JSON format. If a field cannot be verified, return an empty string. Split the address into postalCode, address1 (prefecture/city/ward/street), and address2 (building/floor).`;
+          const prompt = `Search the public internet to find business contact information for the company "${formData.company}" in Japan (or matching the provided website "${formData.hp}"). Return strictly in the specified JSON format. If a field cannot be verified, return an empty string. Split the address into postalCode, address1 (prefecture/city/ward/street), and address2 (building/floor). Try to find if they have a physical showroom and its address.`;
 
           const payload = {
             contents: [{ role: "user", parts: [{ text: prompt }] }],
@@ -788,12 +1066,14 @@
               responseSchema: {
                 type: "OBJECT",
                 properties: {
-                  category: { type: "STRING", description: "Vendor category/industry (e.g. Waterproofing, Tiles, IT)" },
+                  category: { type: "STRING", description: CATEGORY_PROMPT },
                   phone: { type: "STRING", description: "Company main phone number" },
                   postalCode: { type: "STRING", description: "Postal code (e.g. 100-0001)" },
                   address1: { type: "STRING", description: "Address part 1 (Prefecture, City, Ward, Street)" },
                   address2: { type: "STRING", description: "Address part 2 (Building, Floor)" },
-                  hp: { type: "STRING", description: "Official website URL" }
+                  hp: { type: "STRING", description: "Official website URL" },
+                  hasShowroom: { type: "BOOLEAN", description: "Whether the company has a physical showroom (ショールーム)" },
+                  showroomAddress: { type: "STRING", description: "The address of the showroom" }
                 }
               }
             }
@@ -813,7 +1093,9 @@
                 postalCode: prev.postalCode || parsedData.postalCode || '',
                 address1: prev.address1 || parsedData.address1 || '',
                 address2: prev.address2 || parsedData.address2 || '',
-                hp: prev.hp || parsedData.hp || ''
+                hp: prev.hp || parsedData.hp || '',
+                hasShowroom: parsedData.hasShowroom || prev.hasShowroom,
+                showroomAddress: parsedData.showroomAddress || prev.showroomAddress || ''
               }));
               showToast(t('toastAiSuccess'));
             } else {
@@ -997,6 +1279,10 @@
                 try { parsedProjects = JSON.parse(row[17]); } catch(e) {}
               }
             }
+            
+            // 讀取 Showroom 新欄位
+            const hasShowroom = row[18] === "TRUE";
+            const showroomAddress = row[19] || '';
 
             newVendors.push({
               id: Date.now().toString() + '-' + i,
@@ -1005,7 +1291,8 @@
               honorific: row[6] || (lang === 'ja' ? '様' : ''), phone: row[7] || '', mobile: row[8] || '',
               email: row[9] || '', postalCode: row[10] || '', address1: row[11] || '',
               address2: row[12] || '', notes: row[13] || '', dataYear: parsedDataYear, 
-              catalogs: parsedCatalogs, projects: parsedProjects, lastUpdated: parsedLastUpdated, history: [], sortIndex: i
+              catalogs: parsedCatalogs, projects: parsedProjects, lastUpdated: parsedLastUpdated, history: [], sortIndex: i,
+              hasShowroom, showroomAddress
             });
           }
           
@@ -1043,7 +1330,8 @@
         const headers = [
           t('catCategory'), t('catCompany'), t('catHp'), t('catDept'), t('catName'), t('catFurigana'), 
           t('catHonorific'), t('catPhone'), t('catMobile'), t('catEmail'), t('catPostal'), 
-          t('catAddress1'), t('catAddress2'), t('catNotes'), t('catYear'), "Catalogs(JSON)", t('lastUpdated'), "Projects(JSON)"
+          t('catAddress1'), t('catAddress2'), t('catNotes'), t('catYear'), "Catalogs(JSON)", t('lastUpdated'), "Projects(JSON)",
+          "HasShowroom", "ShowroomAddress"
         ];
         
         const csvContent = [
@@ -1056,7 +1344,8 @@
             return [
               v.category, v.company, v.hp, v.department, v.name, v.furigana, 
               v.honorific, v.phone, v.mobile, v.email, v.postalCode, 
-              v.address1, v.address2, v.notes, v.dataYear, catalogJson, v.lastUpdated || '', projectJson
+              v.address1, v.address2, v.notes, v.dataYear, catalogJson, v.lastUpdated || '', projectJson,
+              v.hasShowroom ? "TRUE" : "FALSE", v.showroomAddress || ''
             ].map(field => `"${(field || '').replace(/"/g, '""')}"`).join(',')
           })
         ].join('\n');
@@ -1114,6 +1403,7 @@
         }
       };
 
+      // ★ 過濾邏輯更新：使用 selectedProjects 陣列
       const filteredVendors = vendors.filter(v => {
         const matchSearch = !searchTerm || (
           v.name?.includes(searchTerm) || 
@@ -1124,7 +1414,7 @@
         );
         const matchCat = selectedCategories.length === 0 || selectedCategories.includes(v.category);
         const matchCatalog = !mustHaveCatalog || (v.catalogs && v.catalogs.length > 0);
-        const matchProject = !selectedProject || (v.projects && v.projects.includes(selectedProject)); 
+        const matchProject = selectedProjects.length === 0 || (v.projects && v.projects.some(p => selectedProjects.includes(p))); 
         return matchSearch && matchCat && matchCatalog && matchProject;
       }).sort((a, b) => {
         if (sortOrder === 'manual') {
@@ -1142,7 +1432,7 @@
 
       useEffect(() => {
         setCurrentPage(1);
-      }, [searchTerm, selectedCategories, mustHaveCatalog, sortOrder, selectedProject]);
+      }, [searchTerm, selectedCategories, mustHaveCatalog, sortOrder, selectedProjects]);
 
       const totalPages = Math.max(1, Math.ceil(filteredVendors.length / ITEMS_PER_PAGE));
       const paginatedVendors = filteredVendors.slice(
@@ -1152,91 +1442,30 @@
 
       const uniqueCategories = [...new Set(vendors.map(v => v.category).filter(c => c && c.trim() !== ''))].sort();
       const uniqueProjects = [...new Set(vendors.flatMap(v => v.projects || []).filter(p => p && p.trim() !== ''))].sort(); 
-      const markersRef = useRef([]);
 
-      useEffect(() => {
-        if (viewMode !== 'map') return;
-        
-        const container = document.getElementById('google-map-container');
-        if (!container) return;
+      // ★ 嚴格對應大分類，並將舊資料收納至「未分類」
+      const renderGroups = {};
+      catSettings.mains.forEach(m => renderGroups[m] = []);
+      renderGroups["OTHER"] = []; 
 
-        const initMap = () => {
-          if (!window.google || !window.google.maps) return;
-          
-          const map = new window.google.maps.Map(container, {
-            center: { lat: 35.6895, lng: 139.6917 },
-            zoom: 12,
-            mapTypeControl: false,
-            streetViewControl: false,
-          });
-
-          const geocoder = new window.google.maps.Geocoder();
-          const bounds = new window.google.maps.LatLngBounds();
-          let delay = 0;
-          let validPins = 0;
-
-          markersRef.current.forEach(m => m.setMap(null));
-          markersRef.current = [];
-
-          filteredVendors.forEach((vendor) => {
-            const address = `${vendor.postalCode || ''} ${vendor.address1 || ''} ${vendor.address2 || ''}`.trim();
-            if (!address) return;
-
-            setTimeout(() => {
-              geocoder.geocode({ address: address }, (results, status) => {
-                if (status === 'OK' && results[0]) {
-                  const location = results[0].geometry.location;
-                  const marker = new window.google.maps.Marker({
-                    map: map,
-                    position: location,
-                    title: vendor.company || vendor.name,
-                    animation: window.google.maps.Animation.DROP
-                  });
-
-                  const infoWindow = new window.google.maps.InfoWindow({
-                    content: `
-                      <div style="padding: 4px; max-width: 220px; color: #111827; font-family: sans-serif;">
-                        <strong style="font-size: 14px; display: block; margin-bottom: 4px;">${vendor.company || vendor.name || ''}</strong>
-                        <div style="font-size: 12px; color: #4B5563; margin-bottom: 8px;">${address}</div>
-                        <a href="https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(address)}" target="_blank" style="font-size: 12px; color: #2563EB; text-decoration: none; font-weight: bold;">
-                          📍 ${t('mapNav')}
-                        </a>
-                      </div>
-                    `
-                  });
-
-                  marker.addListener('click', () => {
-                    infoWindow.open(map, marker);
-                  });
-
-                  markersRef.current.push(marker);
-                  bounds.extend(location);
-                  validPins++;
-
-                  if (validPins === 1) {
-                    map.setCenter(location);
-                    map.setZoom(15);
-                  } else {
-                    map.fitBounds(bounds);
-                  }
-                }
-              });
-            }, delay);
-            delay += 300;
-          });
-        };
-
-        if (window.google && window.google.maps) {
-          initMap();
-        } else if (googleMapsApiKey) {
-          const script = document.createElement('script');
-          script.src = `https://maps.googleapis.com/maps/api/js?key=${googleMapsApiKey}`;
-          script.async = true;
-          script.defer = true;
-          script.onload = initMap;
-          document.head.appendChild(script);
+      // 1. 先放入設定檔中預先建立的小分類
+      Object.entries(catSettings.subs).forEach(([main, subs]) => {
+        if (renderGroups[main]) {
+          subs.forEach(s => renderGroups[main].push(`${main} > ${s}`));
         }
-      }, [viewMode, filteredVendors, lang]);
+      });
+
+      // 2. 合併資料庫中現有的分類
+      uniqueCategories.forEach(cat => {
+        const parts = cat.split(/[>＞]/);
+        const mainCat = parts[0].trim();
+        
+        if (catSettings.mains.includes(mainCat)) {
+          if (!renderGroups[mainCat].includes(cat)) renderGroups[mainCat].push(cat);
+        } else {
+          if (!renderGroups["OTHER"].includes(cat)) renderGroups["OTHER"].push(cat);
+        }
+      });
 
       const renderHistoryDetails = (data) => {
         if (!data) return null;
@@ -1262,6 +1491,9 @@
               <div><span className="text-gray-500 text-xs block">{t('catAddress')}</span>
                 {data.postalCode && `${data.postalCode} `}{data.address1} {data.address2}
               </div>
+              {data.hasShowroom && (
+                <div><span className="text-gray-500 text-xs block">{t('showroomAddress')}</span>{data.showroomAddress || '-'}</div>
+              )}
               <div><span className="text-gray-500 text-xs block">{t('catNotes')}</span>{data.notes || '-'}</div>
             </div>
           </div>
@@ -1271,7 +1503,7 @@
       const showImagePanel = !editingId && (frontImage || backImage);
 
       return (
-        <div className="min-h-screen bg-[#f7f6f3] text-gray-800 font-sans pb-[env(safe-area-inset-bottom)] flex flex-col">
+        <div className="min-h-screen bg-[#f7f6f3] text-gray-800 font-sans pb-[env(safe-area-inset-bottom)] flex flex-col relative">
           
           {showPwaPrompt && (
             <div className="bg-gray-800 text-white px-4 py-3 flex items-center justify-between text-sm shadow-md pt-[env(safe-area-inset-top)] z-50">
@@ -1413,21 +1645,13 @@
                   >
                     <SlidersHorizontal size={18} />
                     <span className="hidden lg:inline text-sm font-medium">{t('advFilters')}</span>
-                    {(selectedCategories.length > 0 || mustHaveCatalog || sortOrder !== 'desc') && (
+                    {(selectedCategories.length > 0 || mustHaveCatalog || sortOrder !== 'desc' || selectedProjects.length > 0) && (
                       <span className="w-2 h-2 rounded-full bg-[#E0FF00] ml-0.5 border border-black/10"></span>
                     )}
                   </button>
                 </div>
 
                 <div className="flex items-center gap-3 w-full md:w-auto justify-end">
-                  <div className="bg-gray-100 p-1 rounded-lg flex gap-1 border border-gray-200">
-                    <button onClick={() => setViewMode('list')} className={`p-1.5 rounded-md flex items-center justify-center transition-colors ${viewMode === 'list' ? 'bg-white shadow-sm text-gray-800' : 'text-gray-400 hover:text-gray-600'}`} title={t('listView')}>
-                      <List size={16} />
-                    </button>
-                    <button onClick={() => setViewMode('map')} className={`p-1.5 rounded-md flex items-center justify-center transition-colors ${viewMode === 'map' ? 'bg-white shadow-sm text-gray-800' : 'text-gray-400 hover:text-gray-600'}`} title={t('mapView')}>
-                      <Map size={16} />
-                    </button>
-                  </div>
                   <div className="text-sm text-gray-500 font-medium whitespace-nowrap px-1 flex items-center gap-2">
                     {t('totalVendors', filteredVendors.length)}
                     <span className="sm:hidden ml-2 px-2 py-0.5 rounded border border-gray-200 bg-white text-[10px] flex items-center gap-1" onClick={toggleAdmin}>
@@ -1437,16 +1661,27 @@
                 </div>
               </div>
 
-              {user && (uniqueProjects.length > 0 || selectedProject) && (
+              {/* ★ 首頁專案快捷列 (支援多選同步) */}
+              {user && uniqueProjects.length > 0 && (
                 <div className="flex items-center gap-2 overflow-x-auto no-scrollbar pb-3 pt-1 mb-2">
-                  <button onClick={() => setSelectedProject('')} className={`shrink-0 px-4 py-2 rounded-full text-sm font-bold transition-all shadow-sm flex items-center gap-2 border ${!selectedProject ? 'bg-gray-800 text-white border-gray-800' : 'bg-white text-gray-600 border-gray-200 hover:bg-gray-50'}`}>
-                    <FolderOpen size={16} className={!selectedProject ? 'text-gray-300' : 'text-gray-400'} /> {t('allProjects')}
+                  <button 
+                    onClick={() => setSelectedProjects([])} 
+                    className={`shrink-0 px-4 py-2 rounded-full text-sm font-bold transition-all shadow-sm flex items-center gap-2 border ${selectedProjects.length === 0 ? 'bg-gray-800 text-white border-gray-800' : 'bg-white text-gray-600 border-gray-200 hover:bg-gray-50'}`}
+                  >
+                    <FolderOpen size={16} className={selectedProjects.length === 0 ? 'text-gray-300' : 'text-gray-400'} /> {t('allProjects')}
                   </button>
-                  {uniqueProjects.map(p => (
-                    <button key={p} onClick={() => setSelectedProject(p)} className={`shrink-0 px-4 py-2 rounded-full text-sm font-bold transition-all shadow-sm flex items-center gap-2 border ${selectedProject === p ? 'bg-blue-600 text-white border-blue-600 ring-2 ring-blue-100 ring-offset-1' : 'bg-white text-gray-600 border-gray-200 hover:bg-gray-50'}`}>
-                      <Folder size={16} className={selectedProject === p ? 'text-blue-200' : 'text-blue-500'} /> {p}
+                  {uniqueProjects.map(p => {
+                    const isSelected = selectedProjects.includes(p);
+                    return (
+                    <button 
+                      key={p} 
+                      onClick={() => setSelectedProjects(prev => prev.includes(p) ? prev.filter(x => x !== p) : [...prev, p])} 
+                      className={`shrink-0 px-4 py-2 rounded-full text-sm font-bold transition-all shadow-sm flex items-center gap-2 border ${isSelected ? 'bg-blue-600 text-white border-blue-600 ring-2 ring-blue-100 ring-offset-1' : 'bg-white text-gray-600 border-gray-200 hover:bg-gray-50'}`}
+                    >
+                      <Folder size={16} className={isSelected ? 'text-blue-200' : 'text-blue-500'} /> {p}
                     </button>
-                  ))}
+                    )
+                  })}
                 </div>
               )}
 
@@ -1457,15 +1692,16 @@
                       <Filter size={16} className="text-gray-500"/> {t('advFilters')}
                     </h3>
                     <button 
-                      onClick={() => { setSelectedCategories([]); setMustHaveCatalog(false); setSortOrder('desc'); setSearchTerm(''); setSelectedProject(''); }}
+                      onClick={() => { setSelectedCategories([]); setSelectedProjects([]); setMustHaveCatalog(false); setSortOrder('desc'); setSearchTerm(''); }}
                       className="text-xs text-red-500 hover:text-red-700 font-medium transition-colors"
                     >
                       {t('clearFilters')}
                     </button>
                   </div>
 
+                  {/* ★ 調整左右比例：左4 右8，給多選區更大的空間 */}
                   <div className="grid grid-cols-1 md:grid-cols-12 gap-6">
-                    <div className="md:col-span-5 space-y-5">
+                    <div className="md:col-span-4 space-y-5">
                       <div>
                         <label className="text-xs font-bold text-gray-500 uppercase tracking-wider mb-2 block">{t('sortBy')}</label>
                         <div className="flex flex-wrap bg-gray-100 p-1 rounded-lg w-max border border-gray-200">
@@ -1504,30 +1740,127 @@
                       </div>
                     </div>
 
-                    <div className="md:col-span-7">
-                      <label className="text-xs font-bold text-gray-500 uppercase tracking-wider mb-2 block">
-                        {t('multiCategory')} ({selectedCategories.length}/{uniqueCategories.length})
-                      </label>
-                      {uniqueCategories.length > 0 ? (
-                        <div className="flex flex-wrap gap-2">
-                          {uniqueCategories.map(cat => {
-                            const isSelected = selectedCategories.includes(cat);
-                            const style = isSelected ? getNeonTagStyle(cat) : { backgroundColor: 'white', color: '#6b7280', border: '1px solid #e5e7eb' };
-                            return (
-                              <button
-                                key={cat}
-                                onClick={() => setSelectedCategories(prev => prev.includes(cat) ? prev.filter(c => c !== cat) : [...prev, cat])}
-                                className={`px-2.5 py-1.5 text-xs font-bold rounded-md flex items-center gap-1.5 shadow-sm transition-all hover:opacity-80 ${isSelected ? 'ring-2 ring-offset-1 ring-gray-200' : ''}`}
-                                style={style}
-                              >
-                                {cat}
-                              </button>
-                            );
-                          })}
+                    <div className="md:col-span-8 flex flex-col gap-6">
+                      {/* ★ 進階篩選新增：專案多選區塊 */}
+                      {uniqueProjects.length > 0 && (
+                        <div className="bg-blue-50/50 rounded-xl p-4 border border-blue-100">
+                          <label className="text-xs font-bold text-blue-800 uppercase tracking-wider mb-3 block">
+                            {t('multiProject')} ({selectedProjects.length}/{uniqueProjects.length})
+                          </label>
+                          <div className="flex flex-wrap gap-2">
+                            {uniqueProjects.map(p => {
+                              const isSelected = selectedProjects.includes(p);
+                              return (
+                                <button
+                                  key={p}
+                                  onClick={() => setSelectedProjects(prev => prev.includes(p) ? prev.filter(x => x !== p) : [...prev, p])}
+                                  className={`px-3 py-1.5 text-xs font-bold rounded-md flex items-center gap-1.5 shadow-sm transition-all hover:opacity-80 border ${isSelected ? 'bg-blue-600 text-white border-blue-600 ring-2 ring-offset-1 ring-blue-200' : 'bg-white text-gray-600 border-gray-200'}`}
+                                >
+                                  <Folder size={14} className={isSelected ? "text-blue-200" : "text-blue-500"} />
+                                  {p}
+                                </button>
+                              )
+                            })}
+                          </div>
                         </div>
-                      ) : (
-                        <div className="text-sm text-gray-400 italic">No categories available</div>
                       )}
+
+                      {/* 分類多選區塊 */}
+                      <div>
+                        <div className="flex justify-between items-center mb-2 block">
+                          <div className="flex items-center gap-2">
+                            <label className="text-xs font-bold text-gray-500 uppercase tracking-wider block mb-0">
+                              {t('multiCategory')} ({selectedCategories.length})
+                            </label>
+                            {!isAdmin && <span className="text-[10px] text-gray-400 bg-gray-100 border border-gray-200 px-1.5 py-0.5 rounded shadow-sm">{t('adminOnlyEditCat')}</span>}
+                          </div>
+                          {isAdmin && (
+                            <button
+                              onClick={() => setEditCatMode(!editCatMode)}
+                              className={`text-xs font-bold px-2.5 py-1 rounded transition-colors shadow-sm ${editCatMode ? 'bg-blue-100 text-blue-700 border border-blue-200' : 'bg-white text-gray-600 border border-gray-200 hover:bg-gray-50'}`}
+                            >
+                              {editCatMode ? (lang === 'ja' ? '編集完了' : '完成編輯') : '✏️ ' + t('editCatMode')}
+                            </button>
+                          )}
+                        </div>
+                        
+                        {Object.keys(renderGroups).length > 0 ? (
+                          <div className="flex flex-col gap-3">
+                            {catSettings.mains.concat(["OTHER"]).map(mainCat => {
+                              const subCats = renderGroups[mainCat];
+                              // 若不在編輯模式且沒有子分類，則隱藏該大分類
+                              if (!editCatMode && (!subCats || subCats.length === 0)) return null;
+                              
+                              const groupTitle = mainCat === "OTHER" ? t('otherUncategorized') : mainCat;
+                              return (
+                              <div 
+                                key={mainCat} 
+                                className={`bg-gray-50 rounded-lg p-2.5 border transition-all duration-200 ${editCatMode ? 'border-dashed border-gray-300 min-h-[70px]' : 'border-gray-100'}`}
+                                onDragOver={(e) => { if(editCatMode){ e.preventDefault(); e.currentTarget.classList.add('bg-blue-50'); } }}
+                                onDragLeave={(e) => { if(editCatMode){ e.currentTarget.classList.remove('bg-blue-50'); } }}
+                                onDrop={(e) => {
+                                  if(editCatMode){
+                                    e.preventDefault();
+                                    e.currentTarget.classList.remove('bg-blue-50');
+                                    handleCategoryDrop(mainCat, draggedCat);
+                                  }
+                                }}
+                              >
+                                <div className="flex items-center justify-between mb-2 px-1">
+                                  <div className="text-xs font-bold text-gray-700">{groupTitle}</div>
+                                  {editCatMode && mainCat !== "OTHER" && (
+                                    <button onClick={() => handleAddSubCategory(mainCat)} className="text-[10px] bg-white border border-gray-200 px-1.5 py-0.5 rounded text-gray-500 hover:bg-gray-100 shadow-sm">+ {t('addSubCat')}</button>
+                                  )}
+                                </div>
+                                <div className="flex flex-wrap gap-2 relative">
+                                  {subCats && subCats.map(cat => {
+                                    const isSelected = selectedCategories.includes(cat);
+                                    const style = isSelected ? getNeonTagStyle(cat) : { backgroundColor: 'white', color: '#6b7280', border: '1px solid #e5e7eb' };
+                                    const parts = cat.split(/[>＞]/);
+                                    const displayName = (parts.length > 1 && catSettings.mains.includes(parts[0].trim())) 
+                                                        ? parts.slice(1).join('>').trim() 
+                                                        : cat;
+                                    return (
+                                      <button
+                                        key={cat}
+                                        draggable={editCatMode}
+                                        onDragStart={(e) => {
+                                          if(editCatMode) {
+                                            setDraggedCat(cat);
+                                            e.dataTransfer.effectAllowed = "move";
+                                          }
+                                        }}
+                                        onDragEnd={() => setDraggedCat(null)}
+                                        onClick={() => !editCatMode && setSelectedCategories(prev => prev.includes(cat) ? prev.filter(c => c !== cat) : [...prev, cat])}
+                                        onContextMenu={(e) => {
+                                          if (editCatMode) {
+                                            e.preventDefault();
+                                            setContextMenu({ x: e.clientX, y: e.clientY, cat });
+                                          }
+                                        }}
+                                        className={`px-2.5 py-1.5 text-[11px] font-bold rounded-md flex items-center gap-1.5 shadow-sm transition-all ${isSelected && !editCatMode ? 'ring-2 ring-offset-1 ring-gray-200' : ''} ${editCatMode ? 'cursor-grab active:cursor-grabbing hover:scale-105 hover:shadow-md' : 'hover:opacity-80'}`}
+                                        style={style}
+                                        title={cat}
+                                      >
+                                        {editCatMode && <GripVertical size={10} className="opacity-40" />}
+                                        {displayName}
+                                      </button>
+                                    );
+                                  })}
+                                </div>
+                              </div>
+                              )
+                            })}
+                            {editCatMode && (
+                              <button onClick={handleAddMainCategory} className="w-full py-3 mt-2 border-2 border-dashed border-gray-300 rounded-lg text-sm font-bold text-gray-400 hover:text-gray-600 hover:bg-gray-50 transition-colors flex items-center justify-center gap-2">
+                                <Plus size={16} /> {t('addMainCat')}
+                              </button>
+                            )}
+                          </div>
+                        ) : (
+                          <div className="text-sm text-gray-400 italic">No categories available</div>
+                        )}
+                      </div>
                     </div>
                   </div>
                 </div>
@@ -1546,19 +1879,6 @@
                 </div>
                 <h3 className="text-lg font-medium text-gray-900 mb-1">{t('noData')}</h3>
                 <p className="text-gray-500 mb-6 max-w-sm text-sm sm:text-base">{t('noDataDesc')}</p>
-              </div>
-            ) : viewMode === 'map' ? (
-              <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-2 h-[600px] sm:h-[75vh] w-full flex flex-col relative overflow-hidden animate-in fade-in duration-300">
-                {!googleMapsApiKey && (
-                  <div className="absolute inset-0 bg-gray-900/5 z-10 flex flex-col items-center justify-center p-6 text-center backdrop-blur-[2px]">
-                    <div className="bg-white p-6 rounded-xl shadow-lg border border-gray-200 max-w-md">
-                      <Map size={36} className="mx-auto mb-4 text-gray-400" />
-                      <h3 className="text-lg font-bold text-gray-800 mb-2">{t('mapNoKey')}</h3>
-                      <p className="text-sm text-gray-500 mb-4">{t('mapKeyHint')}</p>
-                    </div>
-                  </div>
-                )}
-                <div id="google-map-container" className="w-full h-full rounded-lg bg-gray-100"></div>
               </div>
             ) : (
               <div className="flex flex-col gap-6 animate-in fade-in duration-300">
@@ -1595,8 +1915,18 @@
                          </div>
                       )}
 
-                      {/* ★ 新增：右上角快捷按鈕群 (通訊錄與 Email) */}
+                      {/* ★ 新增：右上角快捷按鈕群 (地圖導航、通訊錄、Email) */}
                       <div className="absolute top-4 right-4 flex items-center gap-2 z-10">
+                        {/* 地圖導航按鈕 (黑色) */}
+                        {(vendor.address1 || vendor.address2 || vendor.postalCode) && (
+                          <button 
+                            onClick={(e) => handleMapClick(vendor, e)}
+                            className="w-8 h-8 bg-gray-900 text-white hover:bg-black active:bg-gray-800 rounded-full transition-all shadow-md hover:shadow-lg flex items-center justify-center opacity-80 hover:opacity-100 hover:-translate-y-0.5"
+                            title={t('mapNav')}
+                          >
+                            <MapPin size={14} className="mt-[1px]" />
+                          </button>
+                        )}
                         {/* 同步至通訊錄按鈕 (vCard) */}
                         {(vendor.phone || vendor.mobile || vendor.name || vendor.company) && (
                           <button 
@@ -1619,7 +1949,7 @@
                         )}
                       </div>
 
-                      <div className="p-4 sm:p-5 flex-grow pr-20"> {/* 增加 pr-20 避免檔到兩個按鈕 */}
+                      <div className="p-4 sm:p-5 flex-grow pr-32"> {/* 增加 pr-32 避免檔到三個按鈕 */}
                         <div className="flex items-center gap-3 mb-3">
                           {vendor.logo ? (
                             <img src={vendor.logo} alt="logo" className="w-10 h-10 rounded-lg object-cover border border-gray-200 shrink-0 bg-white" />
@@ -1634,13 +1964,17 @@
                         </div>
 
                         <div className="flex flex-wrap items-center gap-2 mb-4">
-                          {vendor.dataYear && (
-                            <div 
-                              className="px-2.5 py-1 text-xs font-bold rounded-md flex items-center gap-1.5 shadow-sm bg-gray-100 text-gray-700 border border-gray-200 pointer-events-none"
-                            >
-                              <Calendar size={12} className="text-gray-500" /> {vendor.dataYear}
-                            </div>
-                          )}
+                          {vendor.dataYear && (() => {
+                            const { bgClass, iconClass, tooltip } = getYearTagProps(vendor.dataYear);
+                            return (
+                              <div 
+                                className={`px-2.5 py-1 text-xs font-bold rounded-md flex items-center gap-1.5 shadow-sm border cursor-default transition-colors ${bgClass}`}
+                                title={tooltip}
+                              >
+                                <Calendar size={12} className={iconClass} /> {vendor.dataYear}
+                              </div>
+                            );
+                          })()}
                           {vendor.category && (
                             <button 
                               onClick={(e) => {
@@ -1651,11 +1985,17 @@
                                 setShowAdvFilters(true);
                                 window.scrollTo({ top: 0, behavior: 'smooth' });
                               }}
-                              className="px-2.5 py-1 text-xs font-bold rounded-md flex items-center gap-1.5 shadow-sm hover:opacity-80 hover:-translate-y-0.5 transition-all cursor-pointer z-10"
+                              className="px-2.5 py-1 text-xs font-bold rounded-md flex items-center gap-1 shadow-sm hover:opacity-80 hover:-translate-y-0.5 transition-all cursor-pointer z-10"
                               style={getNeonTagStyle(vendor.category)}
                               title={t('clickToFilter')}
                             >
-                              <Tag size={12} /> {vendor.category}
+                              <Tag size={12} /> 
+                              {vendor.category.split(/[>＞]/).map((part, i, arr) => (
+                                <React.Fragment key={i}>
+                                  {part.trim()}
+                                  {i < arr.length - 1 && <span className="opacity-50 mx-0.5 font-normal">❯</span>}
+                                </React.Fragment>
+                              ))}
                             </button>
                           )}
                         </div>
@@ -1697,12 +2037,37 @@
                               </span>
                             </div>
                           )}
+                          {/* ★ 新增：Showroom 專屬地址與導航標籤 */}
+                          {vendor.hasShowroom && vendor.showroomAddress && (
+                            <div className="flex items-start gap-2.5 pt-1">
+                              <Store size={15} className="text-blue-500 shrink-0 mt-0.5" />
+                              <span className="line-clamp-2 text-blue-700">
+                                <span className="font-bold text-[10px] bg-blue-100 text-blue-700 px-1 py-0.5 rounded mr-1.5 border border-blue-200">{t('showroomBadge')}</span>
+                                {vendor.showroomAddress}
+                              </span>
+                              <button 
+                                onClick={(e) => openMapAddress(vendor.showroomAddress, e)}
+                                className="ml-auto p-1.5 bg-blue-50 hover:bg-blue-100 active:bg-blue-200 rounded text-blue-600 transition-colors shrink-0 shadow-sm border border-blue-100"
+                                title={t('mapNav')}
+                              >
+                                <MapPin size={12} />
+                              </button>
+                            </div>
+                          )}
                         </div>
 
                         {vendor.projects && vendor.projects.length > 0 && (
                           <div className="mt-4 pt-3 border-t border-gray-100 flex flex-wrap gap-1.5">
                             {vendor.projects.map(p => (
-                              <button key={p} onClick={(e) => { e.stopPropagation(); setSelectedProject(p); window.scrollTo({ top: 0, behavior: 'smooth' }); }} className="px-2 py-0.5 bg-blue-50 text-blue-700 border border-blue-100 rounded text-[10px] font-bold flex items-center gap-1 hover:bg-blue-100 transition-colors z-10 relative">
+                              <button 
+                                key={p} 
+                                onClick={(e) => { 
+                                  e.stopPropagation(); 
+                                  if (!selectedProjects.includes(p)) setSelectedProjects(prev => [...prev, p]); 
+                                  window.scrollTo({ top: 0, behavior: 'smooth' }); 
+                                }} 
+                                className="px-2 py-0.5 bg-blue-50 text-blue-700 border border-blue-100 rounded text-[10px] font-bold flex items-center gap-1 hover:bg-blue-100 transition-colors z-10 relative"
+                              >
                                 <Folder size={10} /> {p}
                               </button>
                             ))}
@@ -1937,7 +2302,14 @@
                           </div>
                           <div className="flex-grow grid grid-cols-1 sm:grid-cols-2 gap-3 sm:gap-4">
                             <div className="space-y-1"><label className="text-xs font-semibold text-gray-600">{t('catYear')}</label><input type="text" inputMode="numeric" name="dataYear" value={formData.dataYear} onChange={handleInputChange} className="w-full px-3 py-2 sm:py-2 text-base sm:text-sm border border-gray-300 rounded-lg focus:ring-2 focus:ring-gray-200 focus:border-gray-400 outline-none bg-white" placeholder={t('egYear')} /></div>
-                            <div className="space-y-1"><label className="text-xs font-semibold text-gray-600">{t('catCategory')}</label><input type="text" name="category" value={formData.category} onChange={handleInputChange} className="w-full px-3 py-2 sm:py-2 text-base sm:text-sm border border-gray-300 rounded-lg focus:ring-2 focus:ring-gray-200 focus:border-gray-400 outline-none bg-white" placeholder={t('egCategory')} /></div>
+                            <div className="space-y-1">
+                              <label className="text-xs font-semibold text-gray-600">{t('catCategory')}</label>
+                              <input type="text" name="category" list="all-categories" value={formData.category} onChange={handleInputChange} className="w-full px-3 py-2 sm:py-2 text-base sm:text-sm border border-gray-300 rounded-lg focus:ring-2 focus:ring-gray-200 focus:border-gray-400 outline-none bg-white" placeholder={t('egCategory')} />
+                              <datalist id="all-categories">
+                                {catSettings.mains.map(m => <option key={`main-${m}`} value={`${m} > `} />)}
+                                {Object.values(renderGroups).flat().map(cat => <option key={`full-${cat}`} value={cat} />)}
+                              </datalist>
+                            </div>
                             <div className="space-y-1 sm:col-span-2"><label className="text-xs font-semibold text-gray-600">{t('catCompany')} <span className="text-red-500">*</span></label><input type="text" name="company" value={formData.company} onChange={handleInputChange} className="w-full px-3 py-2 sm:py-2 text-base sm:text-sm border border-gray-300 rounded-lg focus:ring-2 focus:ring-gray-200 focus:border-gray-400 outline-none bg-white" placeholder={t('egCompany')} /></div>
                             <div className="space-y-1 sm:col-span-2"><label className="text-xs font-semibold text-gray-600">{t('catHp')}</label><input type="url" name="hp" value={formData.hp} onChange={handleInputChange} className="w-full px-3 py-2 sm:py-2 text-base sm:text-sm border border-gray-300 rounded-lg focus:ring-2 focus:ring-gray-200 focus:border-gray-400 outline-none bg-white" /></div>
                           </div>
@@ -1963,13 +2335,34 @@
                         </div>
                       </div>
 
+                      {/* ★ 表單新增：Showroom 勾選與地址輸入 */}
                       <div className="mb-6">
                         <h3 className="text-sm font-bold text-gray-800 mb-3 border-b border-gray-200 pb-1 flex items-center gap-2"><MapPin size={16}/> {t('addressAndNotes')}</h3>
                         <div className="grid grid-cols-1 sm:grid-cols-6 gap-3 sm:gap-4">
                           <div className="space-y-1 sm:col-span-2"><label className="text-xs font-semibold text-gray-600">{t('catPostal')}</label><input type="text" inputMode="numeric" name="postalCode" value={formData.postalCode} onChange={handleInputChange} className="w-full px-3 py-2 sm:py-2 text-base sm:text-sm border border-gray-300 rounded-lg focus:ring-2 focus:ring-gray-200 focus:border-gray-400 outline-none bg-white" /></div>
                           <div className="space-y-1 sm:col-span-4"><label className="text-xs font-semibold text-gray-600">{t('catAddress1')}</label><input type="text" name="address1" value={formData.address1} onChange={handleInputChange} className="w-full px-3 py-2 sm:py-2 text-base sm:text-sm border border-gray-300 rounded-lg focus:ring-2 focus:ring-gray-200 focus:border-gray-400 outline-none bg-white" /></div>
                           <div className="space-y-1 sm:col-span-6"><label className="text-xs font-semibold text-gray-600">{t('catAddress2')}</label><input type="text" name="address2" value={formData.address2} onChange={handleInputChange} className="w-full px-3 py-2 sm:py-2 text-base sm:text-sm border border-gray-300 rounded-lg focus:ring-2 focus:ring-gray-200 focus:border-gray-400 outline-none bg-white" /></div>
-                          <div className="space-y-1 sm:col-span-6"><label className="text-xs font-semibold text-gray-600">{t('catNotes')}</label><textarea name="notes" value={formData.notes} onChange={handleInputChange} rows={2} className="w-full px-3 py-2 sm:py-2 text-base sm:text-sm border border-gray-300 rounded-lg focus:ring-2 focus:ring-gray-200 focus:border-gray-400 outline-none resize-none bg-white" /></div>
+                          
+                          <div className="space-y-1 sm:col-span-6 flex flex-col gap-2 mt-1 border-t border-gray-100 pt-3">
+                            <label className="flex items-center gap-2 cursor-pointer w-max group">
+                              <input 
+                                type="checkbox" 
+                                name="hasShowroom"
+                                checked={formData.hasShowroom || false} 
+                                onChange={handleInputChange}
+                                className="w-4 h-4 rounded border-gray-300 text-blue-600 focus:ring-blue-500 cursor-pointer accent-blue-600"
+                              />
+                              <span className="text-sm font-medium text-gray-700 group-hover:text-black transition-colors">{t('hasShowroom')}</span>
+                            </label>
+                            {formData.hasShowroom && (
+                              <div className="mt-1 animate-in fade-in slide-in-from-top-1 duration-200">
+                                <label className="text-xs font-semibold text-gray-600 block mb-1">{t('showroomAddress')}</label>
+                                <input type="text" name="showroomAddress" value={formData.showroomAddress || ''} onChange={handleInputChange} className="w-full px-3 py-2 sm:py-2 text-base sm:text-sm border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-200 focus:border-blue-400 outline-none bg-blue-50/30" placeholder={t('showroomAddress')} />
+                              </div>
+                            )}
+                          </div>
+
+                          <div className="space-y-1 sm:col-span-6 mt-1 border-t border-gray-100 pt-3"><label className="text-xs font-semibold text-gray-600">{t('catNotes')}</label><textarea name="notes" value={formData.notes} onChange={handleInputChange} rows={2} className="w-full px-3 py-2 sm:py-2 text-base sm:text-sm border border-gray-300 rounded-lg focus:ring-2 focus:ring-gray-200 focus:border-gray-400 outline-none resize-none bg-white" /></div>
                         </div>
                       </div>
 
@@ -2191,6 +2584,38 @@
             <div className="fixed bottom-6 left-1/2 -translate-x-1/2 z-[80] bg-gray-800 text-white px-4 py-2 rounded-lg shadow-lg flex items-center gap-2 animate-in slide-in-from-bottom-4 fade-in duration-300">
               <CheckCircle2 size={16} className="text-green-400" />
               <span className="text-sm font-medium">{toast}</span>
+            </div>
+          )}
+
+          {/* ★ 右鍵管理選單 (Context Menu) */}
+          {contextMenu && (
+            <div 
+              className="fixed z-[100] bg-white shadow-2xl rounded-lg border border-gray-200 w-64 max-h-[50vh] overflow-y-auto flex flex-col py-1 animate-in fade-in zoom-in-95 duration-100"
+              style={{ 
+                left: Math.min(contextMenu.x, window.innerWidth - 260), 
+                top: Math.min(contextMenu.y, window.innerHeight - 300) 
+              }}
+              onClick={(e) => e.stopPropagation()}
+              onContextMenu={(e) => e.preventDefault()}
+            >
+              <div className="px-3 py-2 text-xs font-bold text-gray-500 bg-gray-50 border-b border-gray-100 sticky top-0 z-10 flex justify-between items-center">
+                <span>{t('moveToMainCat')}</span>
+                <span className="text-[10px] text-gray-400 font-normal truncate max-w-[100px]">{contextMenu.cat}</span>
+              </div>
+              <div className="flex flex-col py-1">
+                {catSettings.mains.map(mainCat => (
+                  <button
+                    key={mainCat}
+                    onClick={() => {
+                      handleCategoryDrop(mainCat, contextMenu.cat);
+                      setContextMenu(null);
+                    }}
+                    className="w-full text-left px-4 py-2.5 text-sm text-gray-700 hover:bg-blue-50 hover:text-blue-700 font-medium transition-colors border-b border-gray-50 last:border-0"
+                  >
+                    {mainCat}
+                  </button>
+                ))}
+              </div>
             </div>
           )}
         </div>
